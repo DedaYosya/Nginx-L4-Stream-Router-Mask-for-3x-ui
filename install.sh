@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 #
 # ==============================================================================
-# Production AutoSetup Monoscript: Hardened Master Engine v3.5 DataSphere Ultra
+# Production AutoSetup Monoscript: Hardened Master Engine v3.6 DataSphere Ultra
 # Architecture: Single-IP Ultra Enhanced + Native Kernel AmneziaWG (Bare-Metal)
 # Zero-Leak Frontend: DataSphere Enterprise SSO Hub + Modular WebCrypto Plane
 # Strict OS Gating: Ubuntu 22.04 / 24.04 / 26.04 & Debian 12 / 13
 # Nginx L4 Single-Ingress (TCP 443) + Xray v26.7.28 Pinned + ML-KEM-768 + Vision
 # Dual UDP Speed Pools: Hy2 (20000:35000 -> 443) | AWG Native (35001:49999 -> 8443)
 # AWG3 Golden Matrix: S1=72, S2=56, S3=32, S4=16, Jc=4, Jmin=40, Jmax=70, MTU=1360
-# Isolated 3X-UI UDP Stack: AWG v3.2 (:10443) | AWG v2.0 (:10444) | WG (:10445)
-# Zero-SNI Defense + Port 80 444 Drop + Live Anti-Loop Fallback 9443
+# Universal Inbound & Client Dual-Sync Reconciliation Matrix (Arbitrary N:M Pool)
+# Tier 1-4 Dynamic WAN Interface Engine + Domain Hierarchy Collision Shield
 # Zero-Placeholder Guarantee: Production-Grade Monolithic Script
 # ==============================================================================
 
 set -Eeuo pipefail
 IFS=$'\n\t'
-umask 022
+umask 077
 
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
@@ -24,7 +24,7 @@ export PYTHONUTF8=1
 export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 
-LOCK_FILE="/var/run/hardened-master-engine-v350.lock"
+LOCK_FILE="/var/run/hardened-master-engine-v360.lock"
 exec 200>"$LOCK_FILE"
 if ! flock -n 200; then
     echo -e "\033[0;31m[X] Ошибка: Установщик уже выполняется в параллельном процессе.\033[0m" >&2
@@ -44,10 +44,12 @@ ok()   { echo -e "${GREEN}[OK]${NC} $*"; }
 warn() { echo -e "${YELLOW}[!]${NC} $*"; }
 die()  { echo -e "${RED}[X] $*${NC}" >&2; exit 1; }
 
+# shellcheck disable=SC2317
 cleanup() {
     local exit_code=$?
     trap - ERR EXIT INT TERM
-    rm -f /tmp/vpn_unified_creds.txt /tmp/3xui_install.log /tmp/xray-*.zip /tmp/agh.tar.gz 2>/dev/null || true
+    systemctl start x-ui 2>/dev/null || true
+    rm -f /tmp/vpn_unified_creds.txt /tmp/3xui_install.log /tmp/xray-*.zip /tmp/agh.tar.gz /tmp/nginx_prev_sni_map.txt 2>/dev/null || true
     if [ "$exit_code" -ne 0 ]; then
         echo -e "\n${RED}[X] Скрипт аварийно прерван на строке ${1:-unknown} (код: ${exit_code}).${NC}" >&2
     fi
@@ -57,19 +59,21 @@ trap 'cleanup $LINENO' ERR INT TERM
 
 clear 2>/dev/null || true
 echo -e "${CYAN}=====================================================================${NC}"
-echo -e "${GREEN}  Hardened Master Engine v3.5 (DataSphere Ultra + Native AmneziaWG)  ${NC}"
-echo -e "${CYAN}  Dual-Mode: Clean Setup / Safe Migration + Nginx L4 Native + 3X-UI  ${NC}"
-echo -e "${WHITE}  Xray Core v26.7.28 Pinned + Native H2C xHTTP + ML-KEM-768 + Vision  ${NC}"
+echo -e "${GREEN}  Hardened Master Engine v3.6 (DataSphere Ultra + Native AmneziaWG)  ${NC}"
+echo -e "${CYAN}  Single-IP Consolidated: Clean Setup / Safe Migration + Nginx L4    ${NC}"
+echo -e "${WHITE}  Xray Core v26.7.28 Pinned + Native H2 xHTTP + ML-KEM-768 + Vision    ${NC}"
 echo -e "${WHITE}  Dual UDP Pools: Hy2 (20000-35000) & AWG Native (35001-49999)      ${NC}"
 echo -e "${WHITE}  AWG3 Golden Matrix: S1=72, S2=56, S3=32, S4=16, MTU 1360 / MSS 1320 ${NC}"
 echo -e "${WHITE}  Stealth SSO Hub: DataSphere In-Memory Portal (3X-UI / AWG / AGH)   ${NC}"
 echo -e "${WHITE}  Ingress Shield: Zero-SNI + Port 80 444 Drop + Live Fallback 9443   ${NC}"
+echo -e "${WHITE}  Universal WAN Engine (Tier 1-4) + Dual-Sync Matrix Reconciliation  ${NC}"
 echo -e "${CYAN}=====================================================================${NC}"
 
 if [ "$EUID" -ne 0 ]; then
   die "Пожалуйста, запустите установщик с правами суперпользователя root (через sudo)."
 fi
 
+# Инициализация системных переменных для строгого режима set -u
 LE_EMAIL=""
 TARGET_SSH_PORT="22"
 ROOT_PASSWORD=""
@@ -81,10 +85,38 @@ AWG_V3_PORT="10443"
 AWG_V2_PORT="10444"
 WG_NATIVE_PORT="10445"
 ENABLE_NATIVE_AWG=1
+ENABLE_STEAL=0
+ENABLE_CLASSIC=0
+ENABLE_HY2=0
+ENABLE_HY2_HOP=0
+ENABLE_AWG_HOP=0
+ENABLE_AWG_V3=0
+ENABLE_AWG_V2=0
+ENABLE_WG_NATIVE=0
+ENABLE_AGH=0
 AGH_DOMAIN=""
 AGH_USER="admin"
 AGH_PASS=""
 AGH_CLIENT_ID=""
+PRIMARY_DOMAIN=""
+GEO_PROFILE="2"
+INSTALL_MODE="1"
+SSL_ENGINE_CHOICE="1"
+SSL_BASE_DIR="/etc/letsencrypt/live"
+DO_SYS_UPGRADE=0
+INSTALL_EXTRA_UTILS=0
+ENABLE_BBR_IPV6=0
+BLOCK_PING=0
+CHANGE_ROOT_PASS=0
+CREATE_USER=0
+SETUP_KEYS=0
+EXISTING_DB_PATH=""
+export EXISTING_DB_PATH
+
+rm -f /etc/apt/sources.list.d/nginx.list /etc/apt/preferences.d/99nginx /usr/share/keyrings/nginx-archive-keyring.gpg.tmp 2>/dev/null || true
+if [ -f /usr/share/keyrings/nginx-archive-keyring.gpg ] && [ ! -s /usr/share/keyrings/nginx-archive-keyring.gpg ]; then
+    rm -f /usr/share/keyrings/nginx-archive-keyring.gpg 2>/dev/null || true
+fi
 
 mkdir -p /etc/needrestart/conf.d
 echo "\$nrconf{restart} = 'a';" > /etc/needrestart/conf.d/99-disable-auto-restart.conf 2>/dev/null || true
@@ -162,7 +194,7 @@ log "Первичная подготовка системных утилит..."
 wait_for_apt_lock
 apt-get update -q >/dev/null 2>&1 || true
 wait_for_apt_lock
-apt-get install -y curl bc bind9-dnsutils iproute2 openssl gawk python3 python3-bcrypt xxd unzip jq sqlite3 bsdextrautils gnupg dirmngr psmisc software-properties-common qrencode -q >/dev/null 2>&1 || true
+apt-get install -y curl bc bind9-dnsutils iproute2 openssl gawk python3 python3-bcrypt xxd unzip jq sqlite3 bsdextrautils gnupg dirmngr psmisc software-properties-common qrencode libmnl-dev make gcc build-essential -q >/dev/null 2>&1 || true
 ok "Базовые утилиты готовы к работе."
 
 validate_port() {
@@ -180,11 +212,73 @@ validate_path_segment() {
     return 0
 }
 
+# =============================================================
+#  УНИВЕРСАЛЬНЫЙ ДЕТЕКТОР ВНЕШНЕГО СЕТЕВОГО ИНТЕРФЕЙСА (TIER 1-4)
+# =============================================================
+detect_wan_interface() {
+    local iface=""
+    local candidate=""
+    local canaries=("1.1.1.1" "8.8.8.8" "77.88.8.8" "9.9.9.9")
+
+    # Tier 1: Запрос FIB-кэша ядра через тестовые Anycast-маршруты
+    for canary in "${canaries[@]}"; do
+        candidate=$(ip -4 route get "$canary" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") {print $(i+1); exit}}')
+        if [ -n "$candidate" ] && [ -d "/sys/class/net/$candidate" ]; then
+            iface="$candidate"
+            break
+        fi
+    done
+
+    # Tier 2: Поиск шлюза по умолчанию в основной таблице маршрутизации
+    if [ -z "$iface" ]; then
+        candidate=$(ip -4 route show default 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") {print $(i+1); exit}}')
+        if [ -n "$candidate" ] && [ -d "/sys/class/net/$candidate" ]; then
+            iface="$candidate"
+        fi
+    fi
+
+    # Tier 3: Инспекция физических интерфейсов в /sys/class/net/ с блэклистом виртуальных
+    if [ -z "$iface" ]; then
+        for dev_path in /sys/class/net/*; do
+            [ -e "$dev_path" ] || continue
+            candidate=$(basename "$dev_path")
+            case "$candidate" in
+                lo|docker*|veth*|br-*|virbr*|tun*|tap*|wg*|awg*|tailscale*|zt*|dummy*)
+                    continue
+                    ;;
+            esac
+            if [ -f "$dev_path/operstate" ] && [ -f "$dev_path/carrier" ]; then
+                local operstate carrier
+                operstate=$(cat "$dev_path/operstate" 2>/dev/null || echo "down")
+                carrier=$(cat "$dev_path/carrier" 2>/dev/null || echo "0")
+                if [ "$operstate" = "up" ] || [ "$carrier" = "1" ]; then
+                    if ip -4 addr show dev "$candidate" 2>/dev/null | grep -q "inet "; then
+                        iface="$candidate"
+                        break
+                    fi
+                fi
+            fi
+        done
+    fi
+
+    # Tier 4: Валидация и fail-safe fallback
+    if [ -z "$iface" ] || [ ! -d "/sys/class/net/$iface" ]; then
+        iface=$(ip -4 route show default 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") {print $(i+1); exit}}' || echo "")
+    fi
+    if [ -z "$iface" ]; then
+        iface="eth0"
+    fi
+    echo "$iface"
+}
+
+DEFAULT_IF=$(detect_wan_interface)
+export DEFAULT_IF
+ok "Сетевой WAN-интерфейс ядра (Universal Engine): ${GREEN}${DEFAULT_IF}${NC}"
+
 SSH_ACTIVE_PORT=""
 if [ -n "${SSH_CONNECTION:-}" ]; then
     SSH_ACTIVE_PORT=$(echo "$SSH_CONNECTION" | awk '{print $4}')
 fi
-
 if [ -z "$SSH_ACTIVE_PORT" ] || ! validate_port "$SSH_ACTIVE_PORT"; then
     SSH_ACTIVE_PORT=$(ss -tlnp 2>/dev/null | grep -E 'sshd|ssh' | grep -vE '127\.0\.0\.1|::1' | awk '{print $4}' | awk -F: '{print $NF}' | grep -vE '^60[0-9]{2}$' | sort -n | tail -n1 || echo "")
 fi
@@ -270,8 +364,12 @@ download_asset() {
 }
 
 benchmark_sni() {
-    local candidates=("tbank.ru" "gateway.icloud.com" "www.samsung.com" "dl.google.com")
-    local best_sni="tbank.ru"
+    local candidates=("gateway.icloud.com" "swdist.apple.com" "dl.google.com" "www.samsung.com")
+    local best_sni="gateway.icloud.com"
+    if [ "${GEO_PROFILE:-2}" = "1" ]; then
+        candidates=("tbank.ru" "gateway.icloud.com" "dl.google.com" "www.samsung.com")
+        best_sni="tbank.ru"
+    fi
     local min_rtt=999999
 
     echo -e "${CYAN}[+] Тестирование внешних SNI для Classic REALITY...${NC}" >&2
@@ -299,10 +397,10 @@ benchmark_sni() {
     echo -n "$best_sni"
 }
 
-EXISTING_DB_PATH=""
 for alt_db in "/etc/x-ui/x-ui.db" "/usr/local/x-ui/bin/x-ui.db" "/etc/x-ui/db/x-ui.db"; do
     if [ -f "$alt_db" ]; then
         EXISTING_DB_PATH="$alt_db"
+        export EXISTING_DB_PATH
         break
     fi
 done
@@ -315,7 +413,7 @@ if [ -n "$EXISTING_DB_PATH" ]; then
     echo -e "${YELLOW}=====================================================================${NC}"
     echo -e "  1) ${RED}Чистая установка (Clean Install)${NC} — Сброс базы, новые ключи и клиенты"
     echo -e "  2) ${GREEN}${BOLD}Безопасное обновление (Safe Migration Mode)${NC} — Сохранение ВСЕХ клиентов,"
-    echo -e "     их UUID, ключей, паролей, статистики и хостов + авто-патч схемы ALPN/SNI"
+    echo -e "     их UUID, ключей, паролей, статистики и хостов + Dual-Sync реконсиляция инбаундов"
     prompt_default "Выберите режим работы" "2" INSTALL_MODE
 
     if [ "$INSTALL_MODE" = "2" ]; then
@@ -386,20 +484,19 @@ echo
 echo -e "${WHITE}${BOLD}--- ШАГ 1: Конфигурация домена и SSL ---${NC}"
 
 DETECTED_MAIN_DOM=""
-if [ "$INSTALL_MODE" = "2" ]; then
-    if [ -f /etc/nginx/conf.d/01-main.conf ]; then
-        DETECTED_MAIN_DOM=$(grep -E 'server_name\s+[^;]+;' /etc/nginx/conf.d/01-main.conf 2>/dev/null | grep -v '_' | awk '{print $2}' | tr -d ';' | head -n1 || echo "")
-    fi
+if [ "$INSTALL_MODE" = "2" ] && [ -f /etc/nginx/conf.d/01-main.conf ]; then
+    DETECTED_MAIN_DOM=$(grep -E 'server_name\s+[^;]+;' /etc/nginx/conf.d/01-main.conf 2>/dev/null | grep -v '_' | awk '{print $2}' | tr -d ';' | head -n1 || echo "")
 fi
 
 while true; do
-    prompt_default "Введите ваш основной домен" "${DETECTED_MAIN_DOM:-yourdomain.online}" PRIMARY_DOMAIN
+    prompt_default "Введите ваш основной домен (любой валидный FQDN, включая www.* при желании)" "${DETECTED_MAIN_DOM:-yourdomain.online}" PRIMARY_DOMAIN
     PRIMARY_DOMAIN=$(echo "$PRIMARY_DOMAIN" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
     if [[ "$PRIMARY_DOMAIN" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$ ]]; then
         break
     fi
     warn "Некорректный формат доменного имени."
 done
+ok "Главный домен L7 (PRIMARY_DOMAIN): ${GREEN}${PRIMARY_DOMAIN}${NC}"
 
 ALL_DOMAINS=("$PRIMARY_DOMAIN")
 declare -A DOMAIN_TO_PORT
@@ -455,8 +552,6 @@ else
     TARGET_SSH_PORT="$SSH_ACTIVE_PORT"
 fi
 
-CHANGE_ROOT_PASS=0
-CREATE_USER=0
 if [ "$INSTALL_MODE" = "1" ]; then
     if prompt_yes_no "Сменить пароль root?" "n"; then
         CHANGE_ROOT_PASS=1
@@ -487,6 +582,8 @@ DETECTED_PANEL_PATH="my-3x-panel"
 DETECTED_SUB_PATH="my-post-key"
 DETECTED_PANEL_PORT="10443"
 DETECTED_SUB_PORT="55443"
+DETECTED_XHTTP_PATH="Stream-One-Path"
+DETECTED_XHTTP_PORT="50443"
 
 if [ -n "$EXISTING_DB_PATH" ]; then
     DETECTED_PANEL_PATH=$(sqlite3 "$EXISTING_DB_PATH" "SELECT value FROM settings WHERE key='webBasePath';" 2>/dev/null || echo "my-3x-panel")
@@ -497,6 +594,16 @@ if [ -n "$EXISTING_DB_PATH" ]; then
     DETECTED_PANEL_PATH="${DETECTED_PANEL_PATH%/}"
     DETECTED_SUB_PATH="${DETECTED_SUB_PATH#/}"
     DETECTED_SUB_PATH="${DETECTED_SUB_PATH%/}"
+
+    DB_XHTTP_PATH=$(sqlite3 "$EXISTING_DB_PATH" "SELECT json_extract(stream_settings, '$.xhttpSettings.path') FROM inbounds WHERE protocol='vless' AND stream_settings LIKE '%xhttp%' LIMIT 1;" 2>/dev/null || echo "")
+    if [ -n "$DB_XHTTP_PATH" ]; then
+        DETECTED_XHTTP_PATH="${DB_XHTTP_PATH#/}"
+        DETECTED_XHTTP_PATH="${DETECTED_XHTTP_PATH%/}"
+    fi
+    DB_XHTTP_PORT=$(sqlite3 "$EXISTING_DB_PATH" "SELECT port FROM inbounds WHERE protocol='vless' AND stream_settings LIKE '%xhttp%' LIMIT 1;" 2>/dev/null || echo "")
+    if [ -n "$DB_XHTTP_PORT" ] && validate_port "$DB_XHTTP_PORT"; then
+        DETECTED_XHTTP_PORT="$DB_XHTTP_PORT"
+    fi
 fi
 
 prompt_port "Внутренний локальный порт панели 3X-UI" "${DETECTED_PANEL_PORT:-10443}" PANEL_PORT
@@ -514,8 +621,8 @@ SUB_PATH="${SUB_PATH%/}/"
 SUB_JSON_PATH="${SUB_PATH}sub-json/"
 SUB_CLASH_PATH="${SUB_PATH}sub-clash/"
 
-prompt_port "Внутренний порт инбаунда VLESS xHTTP (Native H2 Stream-One)" "50443" XHTTP_STREAM_PORT
-prompt_default "Секретный URI-путь для xHTTP" "Stream-One-Path" RAW_XHTTP_STREAM_PATH
+prompt_port "Внутренний порт инбаунда VLESS xHTTP (Native H2 Stream-One)" "${DETECTED_XHTTP_PORT:-50443}" XHTTP_STREAM_PORT
+prompt_default "Секретный URI-путь для xHTTP" "${DETECTED_XHTTP_PATH:-Stream-One-Path}" RAW_XHTTP_STREAM_PATH
 validate_path_segment "$RAW_XHTTP_STREAM_PATH" "URI xHTTP"
 XHTTP_STREAM_PATH="/${RAW_XHTTP_STREAM_PATH#/}"
 XHTTP_STREAM_PATH="${XHTTP_STREAM_PATH%/}/"
@@ -571,6 +678,14 @@ if [ "$ENABLE_STEAL" -eq 1 ]; then
                     continue
                 fi
                 break
+            fi
+
+            # Collision Guardrail: Домен Steal-REALITY не может совпадать с PRIMARY_DOMAIN
+            if [ "$S_DOM" = "$PRIMARY_DOMAIN" ]; then
+                warn "    ОШИБКА КОЛЛИЗИИ: '$S_DOM' совпадает с главным доменом (PRIMARY_DOMAIN)!"
+                warn "    Главный домен зарезервирован за Nginx L7 (веб-декоем, панелью, подписками и xHTTP)."
+                warn "    Для Steal-REALITY укажите поддомен (например, cdn.$PRIMARY_DOMAIN)."
+                continue
             fi
 
             if [[ ! "$S_DOM" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$ ]]; then
@@ -687,7 +802,6 @@ else
     ENABLE_HY2=0
 fi
 
-ENABLE_HY2_HOP=0
 if [ "$ENABLE_HY2" -eq 1 ]; then
     prompt_port "  Внешний UDP-порт для Hysteria 2" "443" HY2_PORT
     echo -e "  ${WHITE}Режим работы портов Hysteria 2:${NC}"
@@ -710,7 +824,17 @@ else
     if prompt_yes_no "Установить НА ТЕХНОЛОГИЯХ ЯДРА нативный сервер AmneziaWG (Bare-Metal awg0)?" "y"; then
         ENABLE_NATIVE_AWG=1
         prompt_port "  Базовый UDP-порт для нативного сервера AmneziaWG awg0" "8443" NATIVE_AWG_PORT
-        ok "  Скоростной пул AmneziaWG 35001-49999/udp привязан к порту :${NATIVE_AWG_PORT}/udp"
+        echo -e "  ${WHITE}Режим работы портов AmneziaWG (awg0):${NC}"
+        echo -e "    1) ${GREEN}Одиночный порт :${NATIVE_AWG_PORT}/udp${NC}"
+        echo -e "    2) ${GREEN}Скоростной пул Hopping :${NATIVE_AWG_PORT} + диапазон 35001-49999/udp [Рекомендуется]${NC}"
+        prompt_default "  Выберите вариант (1 или 2)" "2" AWG_MODE_CHOICE
+        if [ "$AWG_MODE_CHOICE" = "2" ]; then
+            ENABLE_AWG_HOP=1
+            ok "  Скоростной пул AmneziaWG 35001-49999/udp привязан к порту :${NATIVE_AWG_PORT}/udp"
+        else
+            ENABLE_AWG_HOP=0
+            ok "  Выбран одиночный порт :${NATIVE_AWG_PORT}/udp"
+        fi
     else
         ENABLE_NATIVE_AWG=0
     fi
@@ -796,11 +920,14 @@ wait_for_apt_lock
 apt-get update -q
 
 if [ "${DO_SYS_UPGRADE:-0}" -eq 1 ]; then
-    log "Полное обновление пакетов системы..."
+    log "Неинтерактивное обновление системных библиотек и проверка состояния ядра..."
     wait_for_apt_lock
     apt-get upgrade -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
     apt-get autoremove -y -q
     apt-get autoclean -y -q
+    if [ -f /var/run/reboot-required ]; then
+        warn "Обнаружено обновление компонентов ядра Linux. Рекомендуется плановая перезагрузка."
+    fi
 fi
 
 log "Установка системного набора утилит..."
@@ -809,7 +936,7 @@ CORE_PKGS=(
     curl wget bash sudo systemd openssl gawk lsb-release gnupg bind9-dnsutils
     socat cron ufw iptables iproute2 tar apache2-utils fail2ban python3 python3-systemd
     python3-bcrypt ca-certificates build-essential jq tmux net-tools bc xxd unzip sqlite3
-    bsdextrautils dirmngr psmisc qrencode libmnl-dev
+    bsdextrautils dirmngr psmisc qrencode libmnl-dev make gcc
 )
 apt-get install -y "${CORE_PKGS[@]}" -q || true
 
@@ -834,7 +961,7 @@ if [ "${ENABLE_BBR_IPV6:-0}" -eq 1 ]; then
     log "Настройка TCP BBR, fq, somaxconn, Path MTU probing, loose rp_filter и отключение IPv6..."
     modprobe tcp_bbr 2>/dev/null || true
     mkdir -p /etc/sysctl.d/
-    cat << 'EOF' > /etc/sysctl.d/99-hardened-network.conf
+    cat << EOF > /etc/sysctl.d/99-hardened-network.conf
 net.core.default_qdisc = fq
 net.ipv4.tcp_congestion_control = bbr
 net.ipv4.ip_forward = 1
@@ -842,6 +969,7 @@ net.ipv4.ip_nonlocal_bind = 1
 net.ipv4.tcp_syncookies = 1
 net.ipv4.conf.all.rp_filter = 2
 net.ipv4.conf.default.rp_filter = 2
+net.ipv4.conf.${DEFAULT_IF}.rp_filter = 2
 net.ipv6.conf.all.disable_ipv6 = 1
 net.ipv6.conf.default.disable_ipv6 = 1
 net.ipv6.conf.lo.disable_ipv6 = 1
@@ -884,14 +1012,14 @@ EOF
 fi
 
 cat << 'EOF' > /etc/security/limits.d/99-proxy-limits.conf
-* soft nofile 524288
-* hard nofile 524288
-root soft nofile 524288
-root hard nofile 524288
-www-data soft nofile 524288
-www-data hard nofile 524288
-nginx soft nofile 524288
-nginx hard nofile 524288
+* soft nofile 1048576
+* hard nofile 1048576
+root soft nofile 1048576
+root hard nofile 1048576
+www-data soft nofile 1048576
+www-data hard nofile 1048576
+nginx soft nofile 1048576
+nginx hard nofile 1048576
 EOF
 ok "Ядро и лимиты успешно оптимизированы."
 
@@ -1028,17 +1156,19 @@ for dom in "${ALL_DOMAINS[@]}"; do
     fi
 done
 
-log "Оркестрация официального репозитория Nginx Mainline для $OS_ID ($OS_CODENAME)..."
+log "Оркестрация официального репозитория Nginx для $OS_ID ($OS_CODENAME)..."
 systemctl stop nginx 2>/dev/null || true
 
 NGINX_KEYRING="/usr/share/keyrings/nginx-archive-keyring.gpg"
 mkdir -p /usr/share/keyrings
+rm -f "$NGINX_KEYRING" "${NGINX_KEYRING}.tmp"
 
 NGINX_KEY_OK=0
 for key_url in "https://nginx.org/keys/nginx_signing.key" "http://nginx.org/keys/nginx_signing.key"; do
     log "Запрос ключа Nginx: $key_url"
-    if curl -fsSL --connect-timeout 12 -m 30 --retry 2 "$key_url" 2>/dev/null | gpg --dearmor --yes -o "$NGINX_KEYRING" 2>/dev/null; then
-        if [ -s "$NGINX_KEYRING" ]; then
+    if curl -fsSL --connect-timeout 12 -m 30 --retry 2 "$key_url" 2>/dev/null | gpg --dearmor -o "${NGINX_KEYRING}.tmp" 2>/dev/null; then
+        if [ -s "${NGINX_KEYRING}.tmp" ]; then
+            mv -f "${NGINX_KEYRING}.tmp" "$NGINX_KEYRING"
             chmod 644 "$NGINX_KEYRING"
             NGINX_KEY_OK=1
             ok "Ключ Nginx успешно загружен и деарморирован."
@@ -1061,37 +1191,51 @@ if [ "$NGINX_KEY_OK" -eq 0 ] || ! gpg --no-default-keyring --keyring "$NGINX_KEY
     done
 fi
 
-[ "$NGINX_KEY_OK" -eq 1 ] && [ -s "$NGINX_KEYRING" ] || die "Не удалось верифицировать GPG-ключ репозитория nginx.org."
-
-NGINX_REPO_CODENAME="$OS_CODENAME"
-if ! curl -fsSL -I --connect-timeout 5 "https://nginx.org/packages/mainline/$OS_ID/dists/$OS_CODENAME/Release" >/dev/null 2>&1; then
-    if [ "$OS_ID" = "ubuntu" ]; then
-        NGINX_REPO_CODENAME="noble"
-    else
-        NGINX_REPO_CODENAME="bookworm"
+USE_OFFICIAL_NGINX_REPO=0
+if [ "$NGINX_KEY_OK" -eq 1 ] && [ -s "$NGINX_KEYRING" ]; then
+    NGINX_REPO_CODENAME="$OS_CODENAME"
+    if ! curl -fsSL -I --connect-timeout 5 "https://nginx.org/packages/mainline/$OS_ID/dists/$OS_CODENAME/Release" >/dev/null 2>&1; then
+        if [ "$OS_ID" = "ubuntu" ]; then
+            NGINX_REPO_CODENAME="noble"
+        else
+            NGINX_REPO_CODENAME="bookworm"
+        fi
     fi
-    warn "Релиз $OS_CODENAME не найден на nginx.org. Использован совместимый кодовый профиль: $NGINX_REPO_CODENAME"
-fi
 
-echo "deb [signed-by=$NGINX_KEYRING] https://nginx.org/packages/mainline/$OS_ID $NGINX_REPO_CODENAME nginx" \
-    | tee /etc/apt/sources.list.d/nginx.list >/dev/null
+    echo "deb [signed-by=$NGINX_KEYRING] https://nginx.org/packages/mainline/$OS_ID $NGINX_REPO_CODENAME nginx" \
+        | tee /etc/apt/sources.list.d/nginx.list >/dev/null
 
-cat << EOF > /etc/apt/preferences.d/99nginx
+    cat << EOF > /etc/apt/preferences.d/99nginx
 Package: nginx*
 Pin: origin nginx.org
 Pin-Priority: 900
 EOF
 
-if [ -d /etc/nginx/modules-enabled ]; then
-    rm -f /etc/nginx/modules-enabled/*stream*.conf 2>/dev/null || true
+    wait_for_apt_lock
+    if apt-get update -q -o Dir::Etc::sourcelist="sources.list.d/nginx.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0" >/dev/null 2>&1; then
+        wait_for_apt_lock
+        apt-get remove -y nginx-common nginx-core libnginx-mod-* 2>/dev/null || true
+        USE_OFFICIAL_NGINX_REPO=1
+        ok "Репозиторий Nginx Mainline ($NGINX_REPO_CODENAME) верифицирован."
+    else
+        warn "Сбой верификации внешнего репозитория nginx.org. Fallback на системные пакеты ОС..."
+        rm -f /etc/apt/sources.list.d/nginx.list /etc/apt/preferences.d/99nginx
+    fi
 fi
 
-wait_for_apt_lock
-apt-get update -q -o Dir::Etc::sourcelist="sources.list.d/nginx.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0" >/dev/null 2>&1 || apt-get update -q
-
-wait_for_apt_lock
-log "Установка пакета Nginx Mainline с флагами восстановления conffiles..."
-apt-get install -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confmiss" nginx
+if [ "$USE_OFFICIAL_NGINX_REPO" -eq 0 ]; then
+    log "Установка Nginx из системного репозитория $OS_ID..."
+    rm -f /etc/apt/sources.list.d/nginx.list /etc/apt/preferences.d/99nginx
+    wait_for_apt_lock
+    apt-get update -q
+    wait_for_apt_lock
+    apt-get install -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" nginx libnginx-mod-stream 2>/dev/null || apt-get install -y -q nginx
+else
+    wait_for_apt_lock
+    apt-get update -q
+    wait_for_apt_lock
+    apt-get install -y -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" nginx
+fi
 
 NGINX_USER="nginx"
 id -u nginx >/dev/null 2>&1 || NGINX_USER="www-data"
@@ -1099,18 +1243,18 @@ id -u nginx >/dev/null 2>&1 || NGINX_USER="www-data"
 WEBROOT="/var/www/html"
 mkdir -p "$WEBROOT/.well-known/acme-challenge"
 mkdir -p "$WEBROOT/assets/css" "$WEBROOT/assets/js" "$WEBROOT/assets/img"
-mkdir -p /var/log/nginx /var/cache/nginx /var/www/mirror /var/www/proxy_temp /etc/nginx/stream.d /etc/nginx/conf.d
+mkdir -p /var/log/nginx /var/cache/nginx /var/www/mirror /var/www/proxy_temp /etc/nginx/stream.d /etc/nginx/conf.d /etc/nginx/modules-enabled
 
 rm -rf /etc/nginx/sites-enabled/* /etc/nginx/sites-available/* 2>/dev/null || true
 rm -rf /etc/nginx/conf.d/* /etc/nginx/stream.d/* 2>/dev/null || true
 
 chmod 755 /var /var/www "$WEBROOT"
 chmod -R 755 "$WEBROOT/.well-known"
-chmod 755 /var/log/nginx
-chown -R "$NGINX_USER:$NGINX_USER" "$WEBROOT" /var/cache/nginx /var/www/mirror /var/www/proxy_temp /var/log/nginx
+find "$WEBROOT" -type d -exec chmod 755 {} +
+chown -R "$NGINX_USER:$NGINX_USER" "$WEBROOT" /var/cache/nginx /var/www/mirror /var/www/proxy_temp /var/log/nginx 2>/dev/null || true
 
-if [ ! -s /etc/nginx/mime.types ]; then
-    log "Синтез автономной таблицы MIME-типов (/etc/nginx/mime.types)..."
+if [ ! -s /etc/nginx/mime.types ] || ! grep -q "text/css" /etc/nginx/mime.types 2>/dev/null; then
+    log "Синтез канонической таблицы MIME-типов (/etc/nginx/mime.types)..."
     cat << 'EOF_MIME' > /etc/nginx/mime.types
 types {
     text/html                             html htm shtml;
@@ -1126,7 +1270,6 @@ types {
     text/vnd.sun.j2me.app-descriptor      jad;
     text/vnd.wap.wml                      wml;
     text/x-component                      htc;
-    image/avif                            avif;
     image/png                             png;
     image/svg+xml                         svg svgz;
     image/tiff                            tif tiff;
@@ -1139,59 +1282,12 @@ types {
     font/woff2                            woff2;
     application/java-archive              jar war ear;
     application/json                      json;
-    application/mac-binhex40              hqx;
-    application/msword                    doc;
     application/pdf                       pdf;
-    application/postscript                ps eps ai;
-    application/rtf                       rtf;
-    application/vnd.apple.mpegurl         m3u8;
-    application/vnd.google-earth.kml+xml  kml;
-    application/vnd.google-earth.kmz      kmz;
-    application/vnd.ms-excel              xls;
-    application/vnd.ms-fontobject         eot;
-    application/vnd.ms-powerpoint         ppt;
-    application/vnd.wap.wmlc              wmlc;
-    application/wasm                      wasm;
-    application/x-7z-compressed           7z;
-    application/x-cocoa                   cco;
-    application/x-java-archive-diff       jardiff;
-    application/x-java-jnlp-file          jnlp;
-    application/x-makeself                run;
-    application/x-perl                    pl pm;
-    application/x-pilot                   prc pdb;
-    application/x-rar-compressed          rar;
-    application/x-redhat-package-manager  rpm;
-    application/x-sea                     sea;
-    application/x-shockwave-flash         swf;
-    application/x-stuffit                 sit;
-    application/x-tcl                     tcl tk;
-    application/x-x509-ca-cert            der pem crt;
-    application/x-xpinstall               xpi;
-    application/xhtml+xml                 xhtml;
-    application/xspf+xml                  xspf;
     application/zip                       zip;
     application/octet-stream              bin exe dll deb dmg iso img msi msp msm;
-    audio/midi                            mid midi kar;
-    audio/mpeg                            mp3;
-    audio/ogg                             ogg;
-    audio/x-m4a                           m4a;
-    audio/x-realaudio                     ra;
-    video/3gpp                            3gpp 3gp;
-    video/mp2t                            ts;
-    video/mp4                             mp4;
-    video/mpeg                            mpeg mpg;
-    video/quicktime                       mov;
-    video/webm                            webm;
-    video/x-flv                           flv;
-    video/x-m4v                           m4v;
-    video/x-mng                           mng;
-    video/x-ms-asf                        asx asf;
-    video/x-ms-wmv                        wmv;
-    video/x-msvideo                       avi;
 }
 EOF_MIME
     chmod 644 /etc/nginx/mime.types
-    ok "Каноническая таблица /etc/nginx/mime.types успешно создана."
 fi
 
 cat << EOF > /etc/nginx/nginx.conf
@@ -1218,15 +1314,15 @@ server {
     listen 80 default_server;
     server_name _;
     server_tokens off;
+    root /var/www/html;
 
     location ^~ /.well-known/acme-challenge/ {
-        root /var/www/html;
         default_type "text/plain";
         try_files $uri =404;
     }
 
     location / {
-        return 301 https://$host$request_uri;
+        return 444;
     }
 }
 EOF
@@ -1235,6 +1331,8 @@ nginx -t || die "Ошибка конфигурации ACME Bootstrap серве
 systemctl restart nginx
 
 log "Локальный Pre-flight Loopback Smoke Test для ACME..."
+mkdir -p "$WEBROOT/.well-known/acme-challenge"
+chmod 755 /var /var/www "$WEBROOT" "$WEBROOT/.well-known" "$WEBROOT/.well-known/acme-challenge"
 SMOKE_FILE="$WEBROOT/.well-known/acme-challenge/smoke-test.txt"
 echo "acme-smoke-test-payload-ok" > "$SMOKE_FILE"
 chmod 644 "$SMOKE_FILE"
@@ -1270,7 +1368,7 @@ EOF
 
     for dom in "${ALL_DOMAINS[@]}"; do
         if [ -f "/etc/letsencrypt/live/$dom/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/$dom/privkey.pem" ]; then
-            ok "Сертификат для $dom уже существует в системе и валиден."
+            ok "Сертификат для $dom уже существует в системе и валиден (пропуск выпуска)."
             continue
         fi
 
@@ -1295,6 +1393,7 @@ EOF
 #!/bin/bash
 chmod 755 /etc/letsencrypt /etc/letsencrypt/live /etc/letsencrypt/archive 2>/dev/null || true
 chmod 644 /etc/letsencrypt/live/*/* 2>/dev/null || true
+find /etc/letsencrypt/live/ -name "privkey.pem" -exec chmod 600 {} + 2>/dev/null || true
 systemctl reload nginx
 EOF
     chmod +x /etc/letsencrypt/renewal-hooks/deploy/nginx-reload.sh
@@ -1317,7 +1416,7 @@ else
             "$_ACME" --install-cert -d "$dom" \
                 --key-file "/etc/ssl/acme/$dom/privkey.pem" \
                 --fullchain-file "/etc/ssl/acme/$dom/fullchain.pem" \
-                --reloadcmd "chmod 755 /etc/ssl/acme/$dom; chmod 644 /etc/ssl/acme/$dom/*; systemctl reload nginx"
+                --reloadcmd "chmod 755 /etc/ssl/acme/$dom; chmod 644 /etc/ssl/acme/$dom/*; chmod 600 /etc/ssl/acme/$dom/privkey.pem; systemctl reload nginx"
             ok "Сертификат для $dom получен."
         fi
     done
@@ -1325,15 +1424,18 @@ fi
 
 chmod 755 /etc/letsencrypt /etc/letsencrypt/live /etc/letsencrypt/archive 2>/dev/null || true
 chmod 644 /etc/letsencrypt/live/*/* 2>/dev/null || true
+find /etc/letsencrypt/live/ -name "privkey.pem" -exec chmod 600 {} + 2>/dev/null || true
 
 if [ "${ENABLE_AGH:-0}" -eq 1 ]; then
     log "Установка AdGuard Home (DoH + Split-DNS)..."
-    mkdir -p /etc/systemd/resolved.conf.d
-    cat << 'EOF' > /etc/systemd/resolved.conf.d/adguard-disable-stub.conf
+    if systemctl is-active --quiet systemd-resolved 2>/dev/null || systemctl list-unit-files systemd-resolved.service 2>/dev/null | grep -q "systemd-resolved"; then
+        mkdir -p /etc/systemd/resolved.conf.d
+        cat << 'EOF' > /etc/systemd/resolved.conf.d/adguard-disable-stub.conf
 [Resolve]
 DNSStubListener=no
 EOF
-    systemctl restart systemd-resolved 2>/dev/null || true
+        systemctl restart systemd-resolved 2>/dev/null || true
+    fi
 
     if [ "$GEO_PROFILE" = "1" ]; then
         cat << 'EOF' > /etc/resolv.conf
@@ -1411,7 +1513,6 @@ dns:
     - 10.8.2.0/24
     - 10.8.3.0/24
     - 10.9.0.0/24
-    - ::1
   upstream_dns:
 ${AGH_UPSTREAMS}
 clients:
@@ -1439,7 +1540,7 @@ tls:
 schema_version: 28
 EOF
     else
-        ok "Конфигурация AdGuard Home сохранена."
+        ok "Конфигурация AdGuard Home сохранена без перезаписи."
     fi
 
     /opt/AdGuardHome/AdGuardHome -s install >/dev/null 2>&1 || true
@@ -1484,6 +1585,8 @@ ln -sf /var/www/html/assets/img/favicon.svg /var/www/html/favicon.ico
 cat << 'EOF' > /var/www/html/robots.txt
 User-agent: *
 Disallow: /api/
+Disallow: /console/
+Disallow: /telemetry/
 Allow: /
 EOF
 
@@ -1546,6 +1649,7 @@ header {
 }
 .hero p { font-size: clamp(16px, 2vw, 18px); color: var(--text-muted); margin: 0 auto 36px; line-height: 1.65; max-width: 720px; }
 .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.btn-hero-action { padding: 13px 28px; font-size: 15px; }
 .stats-bar { display: flex; justify-content: center; gap: 40px; margin-top: 60px; padding-top: 40px; border-top: 1px solid var(--border); flex-wrap: wrap; }
 .stat-item h4 { font-size: 28px; font-weight: 600; color: #fff; letter-spacing: -0.5px; }
 .stat-item p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
@@ -1584,6 +1688,7 @@ header {
     transform: translateY(20px); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .modal-overlay.active .modal-card { transform: translateY(0); }
+.modal-card-detail { max-width: 520px; }
 .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
 .modal-header h2 { font-size: 22px; font-weight: 500; color: #fff; }
 .modal-header p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
@@ -1654,80 +1759,32 @@ header {
 .btn-toolbar { padding: 6px 14px; font-size: 12px; }
 .hub-meta-box { background: #131314; border: 1px solid var(--border); border-radius: 14px; padding: 12px; font-size: 12px; margin-bottom: 12px; }
 .text-success { color: var(--success); }
-.qr-preview-box {
-    display: none;
-    text-align: center;
-    padding: 16px;
-    background: #131314;
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    margin-bottom: 14px;
-}
-.qr-card-inner {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    background: #1e1f20;
-    border: 1px solid rgba(168, 199, 250, 0.2);
-    border-radius: 16px;
-    padding: 14px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-}
-.qr-img {
-    width: 200px;
-    height: 200px;
-    display: block;
-    border-radius: 8px;
-}
-.qr-hint {
-    margin-top: 8px;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text-muted);
-}
-.btn-qr-hide {
-    margin-top: 12px;
-    padding: 6px 16px;
-    font-size: 12px;
-}
 .peers-table-container { max-height: 240px; overflow-y: auto; }
 .peers-empty-td { text-align: center; color: var(--text-muted); padding: 20px; }
 
 footer { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 13px; border-top: 1px solid var(--border); }
-/* Large QR Modal Window */
-.qr-modal-card {
-    max-width: 480px !important;
-    text-align: center;
-}
-.qr-display-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 12px 0 6px;
-}
+
+/* QR Modal Window Styles */
+.qr-modal-overlay { z-index: 150; }
+.qr-modal-card { max-width: 480px; text-align: center; }
+.qr-display-container { display: flex; justify-content: center; align-items: center; margin: 12px 0 6px; }
 .qr-card-inner-large {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    background: #1e1f20;
-    border: 1px solid rgba(168, 199, 250, 0.25);
-    border-radius: 24px;
-    padding: 22px;
+    display: inline-flex; flex-direction: column; align-items: center; background: #ffffff;
+    border: 1px solid rgba(168, 199, 250, 0.25); border-radius: 24px; padding: 22px;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
 }
-.qr-img-large {
-    width: clamp(280px, 75vw, 380px);
-    height: clamp(280px, 75vw, 380px);
-    display: block;
-    border-radius: 12px;
-    image-rendering: crisp-edges;
-}
-.qr-hint-large {
-    margin-top: 14px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-muted);
-}
+.qr-img-large { width: clamp(280px, 75vw, 360px); height: clamp(280px, 75vw, 360px); display: block; border-radius: 12px; }
+.qr-hint-large { margin-top: 14px; font-size: 13px; font-weight: 600; color: #1e1f20; }
+.btn-qr-modal-close { width: 100%; height: 46px; margin-top: 18px; }
+
+/* Dynamic Dialog Window Styles */
+.dialog-overlay { z-index: 160; }
+.dialog-card { max-width: 420px; }
+.dialog-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+.btn-full-width-46 { width: 100%; height: 46px; margin-top: 10px; }
+.btn-full-width-44 { width: 100%; height: 44px; margin-top: 24px; }
+
 @keyframes spin { 100% { transform: rotate(360deg); } }
 EOF
 
@@ -1906,7 +1963,7 @@ function renderAdminHub(services) {
             <div class="hub-card" data-action="open-awg">
                 <div class="hub-info">
                     <h4>Нативный сервер AmneziaWG</h4>
-                    <p>Ядро Linux awg0 (:8443, пул 35001-49999, MTU 1360) • Управление клиентами и QR</p>
+                    <p>Ядро Linux awg0 (Базовый порт :${services.awg_port || '8443'}, пул 35001-49999, MTU 1360) • Управление клиентами</p>
                 </div>
                 <div class="hub-arrow">&rarr;</div>
             </div>
@@ -1995,7 +2052,7 @@ async function openAwgManager() {
     }
 }
 
-async function promptAddPeer() {
+function promptAddPeer() {
     let nextNum = 1;
     if (currentAwgPeers && currentAwgPeers.length > 0) {
         const nums = currentAwgPeers
@@ -2008,9 +2065,21 @@ async function promptAddPeer() {
             nextNum = Math.max(...nums) + 1;
         }
     }
-    const defaultName = "Client-" + nextNum;
-    const name = prompt("Введите имя нового клиента (латиница):", defaultName);
+    const dialog = document.getElementById("addPeerDialog");
+    const nameInput = document.getElementById("newPeerName");
+    if (dialog && nameInput) {
+        nameInput.value = "Client-" + nextNum;
+        dialog.classList.add("active");
+        setTimeout(() => { nameInput.focus(); }, 100);
+    }
+}
+
+async function confirmAddPeerAction() {
+    const dialog = document.getElementById("addPeerDialog");
+    const nameInput = document.getElementById("newPeerName");
+    const name = nameInput ? nameInput.value.trim() : "";
     if (!name) return;
+    if (dialog) dialog.classList.remove("active");
 
     try {
         const res = await fetch("/api/v1/datasphere/awg/peer/add", {
@@ -2019,28 +2088,38 @@ async function promptAddPeer() {
                 "Content-Type": "application/json",
                 "Authorization": "Bearer " + authenticatedSession.token
             },
-            body: JSON.stringify({ name: name.trim() })
+            body: JSON.stringify({ name: name })
         });
         const result = await res.json();
         if (result.status === "ok") {
             showToast("Успешно", `Клиент ${name} добавлен в ядро awg0.`);
             openAwgManager();
         } else {
-            alert("Ошибка добавления: " + (result.error || "Сбой"));
+            showToast("Ошибка", result.error || "Сбой добавления пира.");
         }
     } catch(e) {
-        alert("Сбой запроса создания пира.");
+        showToast("Ошибка", "Сбой запроса создания пира.");
     }
 }
 
-function showQr(pubKey, clientName) {
+async function showQr(pubKey, clientName) {
     const modal = document.getElementById("qrModal");
     const img = document.getElementById("qrModalImg");
     const title = document.getElementById("qrClientTitle");
-    if (!modal || !img) return;
+    if (!modal || !img || !authenticatedSession) return;
     if (title && clientName) title.innerText = "QR-код: " + clientName;
-    img.src = "/api/v1/datasphere/awg/peer/qr?key=" + encodeURIComponent(pubKey);
-    modal.classList.add("active");
+    
+    try {
+        const res = await fetch("/api/v1/datasphere/awg/peer/qr?key=" + encodeURIComponent(pubKey), {
+            headers: { "Authorization": "Bearer " + authenticatedSession.token }
+        });
+        if (!res.ok) throw new Error("Unauthorized");
+        const blob = await res.blob();
+        img.src = URL.createObjectURL(blob);
+        modal.classList.add("active");
+    } catch(err) {
+        showToast("Ошибка", "Не удалось загрузить защищенный QR-код.");
+    }
 }
 
 function closeQrModal() {
@@ -2060,12 +2139,22 @@ async function downloadAwgConf(publicKey) {
         a.download = `amnezia-${publicKey.substring(0,6)}.conf`;
         a.click();
     } catch(e) {
-        alert("Не удалось загрузить конфигурационный файл.");
+        showToast("Ошибка", "Не удалось загрузить конфигурационный файл.");
     }
 }
 
-async function removeAwgPeer(publicKey) {
-    if (!confirm("Отозвать ключ и удалить пир из ядра?")) return;
+let pendingDeleteKey = null;
+function removeAwgPeer(publicKey) {
+    pendingDeleteKey = publicKey;
+    const dialog = document.getElementById("confirmDeleteDialog");
+    if (dialog) dialog.classList.add("active");
+}
+
+async function confirmDeletePeerAction() {
+    const dialog = document.getElementById("confirmDeleteDialog");
+    if (dialog) dialog.classList.remove("active");
+    if (!pendingDeleteKey || !authenticatedSession) return;
+
     try {
         await fetch("/api/v1/datasphere/awg/peer/remove", {
             method: "POST",
@@ -2073,11 +2162,14 @@ async function removeAwgPeer(publicKey) {
                 "Content-Type": "application/json",
                 "Authorization": "Bearer " + authenticatedSession.token
             },
-            body: JSON.stringify({ public_key: publicKey })
+            body: JSON.stringify({ public_key: pendingDeleteKey })
         });
+        showToast("Удалено", "Пир успешно отозван.");
         openAwgManager();
     } catch(e) {
-        alert("Сбой удаления пира.");
+        showToast("Ошибка", "Сбой удаления пира.");
+    } finally {
+        pendingDeleteKey = null;
     }
 }
 
@@ -2132,11 +2224,14 @@ document.addEventListener("click", (e) => {
     if (act === "back-to-hub") renderAdminHub(authenticatedSession.services);
     if (act === "add-peer") promptAddPeer();
     if (act === "show-qr") { const r = el.closest("tr"); const cName = r ? r.querySelector("strong")?.innerText : ""; showQr(el.dataset.key, cName); }
-    if (act === "hide-qr") { const qa = document.getElementById("qrPreviewArea"); if (qa) qa.style.display = "none"; }
     if (act === "download-conf") downloadAwgConf(el.dataset.key);
     if (act === "remove-peer") removeAwgPeer(el.dataset.key);
     if (act === "close-hub") { closeAuthModal(); location.reload(); }
     if (act === "close-qr-modal") closeQrModal();
+    if (act === "cancel-add-peer") { document.getElementById("addPeerDialog")?.classList.remove("active"); }
+    if (act === "confirm-add-peer") confirmAddPeerAction();
+    if (act === "cancel-delete-peer") { document.getElementById("confirmDeleteDialog")?.classList.remove("active"); pendingDeleteKey = null; }
+    if (act === "confirm-delete-peer") confirmDeletePeerAction();
 });
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -2177,6 +2272,9 @@ window.addEventListener('keydown', (e) => {
     if (e.key === "Escape") {
         closeAuthModal();
         closeDetailModal();
+        closeQrModal();
+        document.getElementById("addPeerDialog")?.classList.remove("active");
+        document.getElementById("confirmDeleteDialog")?.classList.remove("active");
     }
 });
 EOF
@@ -2205,11 +2303,11 @@ cat << EOF > /var/www/html/index.html
             <h1>Инфраструктура распределённых данных нового поколения</h1>
             <p>Корпоративная аналитическая среда с аппаратным ускорением сетевого стека, сквозным TLS 1.3 / ML-KEM-768 шифрованием и Anycast-маршрутизацией узлов.</p>
             <div class="hero-actions">
-                <button id="connectNodeBtn" class="btn" style="padding: 13px 28px; font-size: 15px;" type="button">
+                <button id="connectNodeBtn" class="btn btn-hero-action" type="button">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="16" height="16"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                     Подключить узел
                 </button>
-                <button id="netStatusBtn" class="btn btn-outline" style="padding: 13px 28px; font-size: 15px;" type="button">
+                <button id="netStatusBtn" class="btn btn-outline btn-hero-action" type="button">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="16" height="16"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                     Статус сети
                 </button>
@@ -2266,13 +2364,13 @@ cat << EOF > /var/www/html/index.html
                     <label for="dsKey">API Token / Ключ</label>
                     <input type="password" id="dsKey" class="form-control" placeholder="••••••••••••••••" required autocomplete="current-password">
                 </div>
-                <button type="submit" id="submitBtn" class="btn" style="width: 100%; height: 46px; margin-top: 10px;">Подключиться к кластеру</button>
+                <button type="submit" id="submitBtn" class="btn btn-full-width-46">Подключиться к кластеру</button>
             </form>
         </div>
     </div>
 
     <div id="detailModal" class="modal-overlay">
-        <div class="modal-card" style="max-width: 520px;">
+        <div class="modal-card modal-card-detail">
             <div class="modal-header">
                 <div>
                     <h2 id="detailTitle">Архитектурный узел</h2>
@@ -2283,7 +2381,7 @@ cat << EOF > /var/www/html/index.html
                 </button>
             </div>
             <div id="detailContent"></div>
-            <button id="detailModalOk" class="btn" style="width: 100%; height: 44px; margin-top: 24px;" type="button">Понятно</button>
+            <button id="detailModalOk" class="btn btn-full-width-44" type="button">Понятно</button>
         </div>
     </div>
 
@@ -2296,7 +2394,8 @@ cat << EOF > /var/www/html/index.html
             <div id="toastDesc" class="toast-desc">Данные синхронизированы</div>
         </div>
     </div>
-    <div id="qrModal" class="modal-overlay" style="z-index: 150;">
+    
+    <div id="qrModal" class="modal-overlay qr-modal-overlay">
         <div class="modal-card qr-modal-card">
             <div class="modal-header">
                 <div>
@@ -2313,10 +2412,49 @@ cat << EOF > /var/www/html/index.html
                     <span class="qr-hint-large">Сканируйте в приложении AmneziaWG</span>
                 </div>
             </div>
-            <button type="button" id="qrModalCloseBtn" class="btn" style="width: 100%; height: 46px; margin-top: 18px;" data-action="close-qr-modal">Закрыть</button>
+            <button type="button" id="qrModalCloseBtn" class="btn btn-qr-modal-close" data-action="close-qr-modal">Закрыть</button>
         </div>
     </div>
 
+    <div id="addPeerDialog" class="modal-overlay dialog-overlay">
+        <div class="modal-card dialog-card">
+            <div class="modal-header">
+                <div>
+                    <h2>Новый клиент AmneziaWG</h2>
+                    <p>Создание профиля в ядре awg0</p>
+                </div>
+                <button type="button" class="modal-close" data-action="cancel-add-peer" aria-label="Закрыть">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="form-group">
+                <label for="newPeerName">Имя клиента (латиница)</label>
+                <input type="text" id="newPeerName" class="form-control" placeholder="Client-1">
+            </div>
+            <div class="dialog-actions">
+                <button type="button" class="btn btn-outline" data-action="cancel-add-peer">Отмена</button>
+                <button type="button" class="btn" data-action="confirm-add-peer">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmDeleteDialog" class="modal-overlay dialog-overlay">
+        <div class="modal-card dialog-card">
+            <div class="modal-header">
+                <div>
+                    <h2>Подтверждение удаления</h2>
+                    <p>Отозвать ключ и удалить пир из ядра?</p>
+                </div>
+                <button type="button" class="modal-close" data-action="cancel-delete-peer" aria-label="Закрыть">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="dialog-actions">
+                <button type="button" class="btn btn-outline" data-action="cancel-delete-peer">Отмена</button>
+                <button type="button" class="btn" data-action="confirm-delete-peer">Удалить</button>
+            </div>
+        </div>
+    </div>
 
     <footer>&copy; 2026 DataSphere Cloud Systems Inc. Платформа распределенной аналитики и защиты данных.</footer>
     <script src="/assets/js/datasphere.js"></script>
@@ -2328,14 +2466,22 @@ cat << 'EOF' > /var/www/html/404.html
 <!DOCTYPE html><html><head><title>404 Not Found</title></head><body><center><h1>404 Not Found</h1></center><hr><center>nginx</center></body></html>
 EOF
 
+chmod 755 /var /var/www "$WEBROOT"
+chmod -R 755 "$WEBROOT/assets" "$WEBROOT/.well-known" 2>/dev/null || true
+find "$WEBROOT" -type d -exec chmod 755 {} +
+find "$WEBROOT" -type f -exec chmod 644 {} +
 chown -R "$NGINX_USER:$NGINX_USER" "$WEBROOT"
-chmod -R 755 "$WEBROOT"
 
 # =============================================================
 #  БОЕВАЯ КОНФИГУРАЦИЯ NGINX MAINLINE L4/L7 (STREAM TCP 443 ONLY)
 # =============================================================
 log "Сборка постоянной конфигурации Nginx (Stream L4 Single-Ingress 443 + Zero-SNI Shield)..."
 rm -f /etc/nginx/conf.d/00-acme.conf
+
+MODULE_LOAD_LINE=""
+if [ "$USE_OFFICIAL_NGINX_REPO" -eq 0 ] && [ -d /etc/nginx/modules-enabled ]; then
+    MODULE_LOAD_LINE="include /etc/nginx/modules-enabled/*.conf;"
+fi
 
 PANEL_PORT="${PANEL_PORT//[!0-9]/}"
 SUB_PORT="${SUB_PORT//[!0-9]/}"
@@ -2344,27 +2490,15 @@ if [ -z "$PANEL_PORT" ]; then PANEL_PORT="10443"; fi
 if [ -z "$SUB_PORT" ]; then SUB_PORT="55443"; fi
 if [ -z "$XHTTP_STREAM_PORT" ]; then XHTTP_STREAM_PORT="50443"; fi
 
-NGINX_RAW_VER=$(nginx -v 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "1.26.0")
-NGINX_MAJOR=$(echo "$NGINX_RAW_VER" | cut -d. -f1)
-NGINX_MINOR=$(echo "$NGINX_RAW_VER" | cut -d. -f2)
-NGINX_PATCH=$(echo "$NGINX_RAW_VER" | cut -d. -f3)
-
-NGINX_PROXY_H2_DIRECTIVE="proxy_http_version 1.1;"
-if [ "$NGINX_MAJOR" -gt 1 ] || \
-   { [ "$NGINX_MAJOR" -eq 1 ] && [ "$NGINX_MINOR" -gt 29 ]; } || \
-   { [ "$NGINX_MAJOR" -eq 1 ] && [ "$NGINX_MINOR" -eq 29 ] && [ "$NGINX_PATCH" -ge 4 ]; }; then
-    NGINX_PROXY_H2_DIRECTIVE="proxy_http_version 2;"
-    ok "Обнаружен Nginx $NGINX_RAW_VER (>= 1.29.4). Активирован нативный 'proxy_http_version 2;' для H2C xHTTP."
-else
-    ok "Обнаружен Nginx $NGINX_RAW_VER (< 1.29.4). Для H2C xHTTP применен безопасный 'proxy_http_version 1.1;'."
-fi
 
 cat << EOF > /etc/nginx/nginx.conf
 user $NGINX_USER;
 worker_processes auto;
 pid /run/nginx.pid;
-worker_rlimit_nofile 524288;
+worker_rlimit_nofile 1048576;
 error_log /var/log/nginx/error.log warn;
+
+$MODULE_LOAD_LINE
 
 events {
     worker_connections 65535;
@@ -2404,7 +2538,6 @@ http {
     upstream xray_xhttp_stream { server 127.0.0.1:$XHTTP_STREAM_PORT; keepalive 64; }
     upstream datasphere_core_backend { server 127.0.0.1:20443; keepalive 16; }
 
-    # Zero-Log Policy: клиентские логи на диск полностью отключены
     access_log off;
 
     real_ip_header proxy_protocol;
@@ -2455,20 +2588,21 @@ http {
     }
 
     map "\$badbot_raw:\$is_scan_attempt:\$request_uri" \$badbot {
-        ~^.*:/robots\.txt(\?|\$) 0;
-        ~^.*:/.well-known/ 0;
-        ~^1:[01]:/favicon\.(ico|svg)\$ 0;
-        ~^1:[01]:/assets/ 0;
-        ~^1:[01]:/dns-query 0;
-        ~^1:[01]:/api/v1/datasphere/ 0;
-        ~^1:[01]:${PANEL_PATH} 0;
-        ~^1:[01]:${SUB_PATH} 0;
-        ~^1:[01]:${SUB_JSON_PATH} 0;
-        ~^1:[01]:${SUB_CLASH_PATH} 0;
-        ~^1:[01]:/sub/ 0;
-        ~^1:[01]:/json/ 0;
-        ~^1:[01]:/clash/ 0;
-        ~^1:[01]:${BASE_XHTTP_PATH} 0;
+        ~^.*:[01]:.*(sub|json|clash).* 0; # sub_bypass
+        ~^.*:[01]:/robots\.txt(\?|\$) 0;
+        ~^.*:[01]:/\.well-known/ 0;
+        ~^.*:[01]:/favicon\.(ico|svg)\$ 0;
+        ~^.*:[01]:/assets/ 0;
+        ~^.*:[01]:/dns-query 0;
+        ~^.*:[01]:/api/v1/datasphere/ 0;
+        ~^.*:[01]:${PANEL_PATH} 0;
+        ~^.*:[01]:${SUB_PATH} 0;
+        ~^.*:[01]:${SUB_JSON_PATH} 0;
+        ~^.*:[01]:${SUB_CLASH_PATH} 0;
+        ~^.*:[01]:/sub/ 0;
+        ~^.*:[01]:/json/ 0;
+        ~^.*:[01]:/clash/ 0;
+        ~^.*:[01]:${BASE_XHTTP_PATH} 0;
         ~^(?:1:[01]|0:1): 1;
         default 0;
     }
@@ -2481,19 +2615,15 @@ http {
     limit_conn_zone \$binary_remote_addr zone=addr:1m;
     limit_req_status 429;
 
-    proxy_hide_header X-Proxy-Engine;
-    proxy_hide_header X-Original-URL;
-    proxy_hide_header X-RateLimit-Remaining;
     proxy_hide_header Server;
     proxy_hide_header X-Powered-By;
     proxy_hide_header Via;
     proxy_hide_header X-Varnish;
-    proxy_hide_header X-Varnish-Cache;
+    proxy_hide_header X-Proxy-Engine;
+    proxy_hide_header Alt-Svc;
     proxy_hide_header Age;
     proxy_hide_header CF-Ray;
     proxy_hide_header CF-Cache-Status;
-    proxy_hide_header Alt-Svc;
-    proxy_hide_header X-Cache-Status;
 
     include /etc/nginx/conf.d/*.conf;
 }
@@ -2503,50 +2633,104 @@ stream {
 }
 EOF
 
+# Синхронизация действующих REALITY-портов и доменов из существующей SQLite базы
+if [ -n "$EXISTING_DB_PATH" ] && [ -f "$EXISTING_DB_PATH" ]; then
+    DB_PREV_REALITY=$(sqlite3 "$EXISTING_DB_PATH" "SELECT DISTINCT port FROM inbounds WHERE protocol='vless' AND stream_settings LIKE '%reality%';" 2>/dev/null || echo "")
+    for drp in $DB_PREV_REALITY; do
+        if validate_port "$drp"; then
+            ALL_REALITY_PORTS+=("$drp")
+            ok "Обнаружен действующий порт REALITY из существующей базы: ${drp}"
+        fi
+    done
+
+    # Автоматическое извлечение существующих SNI для сохранения маршрутизации действующих клиентов
+    python3 - << 'EOF_EXT_SNI'
+import sqlite3, json, os
+
+db_p = os.environ.get("EXISTING_DB_PATH", "")
+if os.path.exists(db_p):
+    try:
+        conn = sqlite3.connect(db_p)
+        cur = conn.cursor()
+        cur.execute("SELECT port, stream_settings FROM inbounds WHERE protocol='vless' AND stream_settings LIKE '%reality%'")
+        for p, st_raw in cur.fetchall():
+            if st_raw:
+                st = json.loads(st_raw)
+                rs = st.get("realitySettings", {})
+                snames = rs.get("serverNames", [])
+                for s in snames:
+                    if s:
+                        with open("/tmp/nginx_prev_sni_map.txt", "a") as f_out:
+                            f_out.write(f"{s}:{p}\n")
+        conn.close()
+    except Exception:
+        pass
+EOF_EXT_SNI
+    if [ -f /tmp/nginx_prev_sni_map.txt ]; then
+        while IFS=: read -r s_name s_port; do
+            if [ -n "$s_name" ] && [ -n "$s_port" ]; then
+                EXT_SNI_TO_PORT["$s_name"]="$s_port"
+            fi
+        done < /tmp/nginx_prev_sni_map.txt
+        rm -f /tmp/nginx_prev_sni_map.txt
+    fi
+fi
+
+# Дедупликация маршрутов Nginx L4 Stream: PRIMARY_DOMAIN и AGH_DOMAIN защищены от перехвата
+declare -A SEEN_SNI_MAP=()
 STREAM_MAP_RULES=""
 REALITY_UPSTREAMS=""
 
-for dom in "${ALL_DOMAINS[@]}"; do
-    if [ "$dom" = "$PRIMARY_DOMAIN" ] || [ "$dom" = "${AGH_DOMAIN:-}" ]; then
-        STREAM_MAP_RULES+="        ${dom}     nginx_http_backend;\n"
-    elif [ "$ENABLE_STEAL" -eq 1 ] && [ -n "${DOMAIN_TO_PORT[$dom]:-}" ]; then
-        port="${DOMAIN_TO_PORT[$dom]}"
-        STREAM_MAP_RULES+="        ${dom}     reality_backend_${port};\n"
-    else
-        STREAM_MAP_RULES+="        ${dom}     nginx_http_backend;\n"
-    fi
-done
+# 1. Приоритетная фиксация главного домена и DoH на L7 Unix-сокет Nginx
+STREAM_MAP_RULES+="        ${PRIMARY_DOMAIN}     nginx_http_backend;\n"
+SEEN_SNI_MAP["$PRIMARY_DOMAIN"]=1
 
-if [ "$ENABLE_CLASSIC" -eq 1 ]; then
-    for ext_sni in "${!EXT_SNI_TO_PORT[@]}"; do
-        port="${EXT_SNI_TO_PORT[$ext_sni]}"
-        STREAM_MAP_RULES+="        ${ext_sni}     reality_backend_${port};\n"
+if [ -n "${AGH_DOMAIN:-}" ]; then
+    STREAM_MAP_RULES+="        ${AGH_DOMAIN}     nginx_http_backend;\n"
+    SEEN_SNI_MAP["$AGH_DOMAIN"]=1
+fi
+
+# 2. Добавление Steal-REALITY поддоменов
+if [ "$ENABLE_STEAL" -eq 1 ]; then
+    for s_dom in "${STEAL_DOMAINS[@]:-}"; do
+        if [ -n "$s_dom" ] && [ -z "${SEEN_SNI_MAP[$s_dom]:-}" ] && [ -n "${DOMAIN_TO_PORT[$s_dom]:-}" ]; then
+            SEEN_SNI_MAP["$s_dom"]=1
+            port="${DOMAIN_TO_PORT[$s_dom]}"
+            STREAM_MAP_RULES+="        ${s_dom}     reality_backend_${port};\n"
+        fi
     done
 fi
 
+# 3. Добавление внешних SNI (Classic REALITY и SNI из существующей базы)
+for ext_sni in "${!EXT_SNI_TO_PORT[@]}"; do
+    if [ -n "$ext_sni" ] && [ -z "${SEEN_SNI_MAP[$ext_sni]:-}" ]; then
+        SEEN_SNI_MAP["$ext_sni"]=1
+        port="${EXT_SNI_TO_PORT[$ext_sni]}"
+        STREAM_MAP_RULES+="        ${ext_sni}     reality_backend_${port};\n"
+    fi
+done
+
+# Использование mapfile -t для устранения предупреждений анализаторов
+mapfile -t ALL_REALITY_PORTS < <(printf "%s\n" "${ALL_REALITY_PORTS[@]:-}" | grep -E "^[0-9]+$" | sort -u || true)
+
+declare -A SEEN_REALITY_UPSTREAMS=()
 for port in "${ALL_REALITY_PORTS[@]:-}"; do
-    if [ -n "$port" ]; then
+    if [ -n "$port" ] && [ -z "${SEEN_REALITY_UPSTREAMS[$port]:-}" ]; then
+        SEEN_REALITY_UPSTREAMS["$port"]=1
         REALITY_UPSTREAMS+="
     upstream reality_backend_${port} {
-        server 127.0.0.1:${port} max_fails=1 fail_timeout=5s;
+        server 127.0.0.1:${port} max_fails=0;
         server unix:/dev/shm/nginx-http.sock backup;
     }
 "
     fi
 done
 
-DEFAULT_PORT="${CLASSIC_PORTS_LIST[0]:-46443}"
-if [ "$ENABLE_CLASSIC" -eq 1 ]; then
-    DEFAULT_FALLBACK="reality_backend_${DEFAULT_PORT}"
-else
-    DEFAULT_FALLBACK="nginx_http_backend"
-fi
-
 cat << EOF > "/etc/nginx/stream.d/00-stream.conf"
 map \$ssl_preread_server_name \$backend_gate {
     hostnames;
     ""                     nginx_http_backend;
-$(echo -e "$STREAM_MAP_RULES")    default                ${DEFAULT_FALLBACK};
+$(echo -e "$STREAM_MAP_RULES")    default                nginx_http_backend;
 }
 
 upstream nginx_http_backend {
@@ -2569,20 +2753,13 @@ server {
     server_name _;
     access_log off;
 
-    if (\$badbot) { return 444; }
-
     location ^~ /.well-known/acme-challenge/ { 
         root $WEBROOT; 
         default_type "text/plain";
         try_files \$uri =404;
     }
 
-    location ~* ^/(wp-admin|wp-login|xmlrpc|vendor|cgi-bin) { return 444; }
-    location ~ /\.(git|env|htaccess|svn) { return 444; }
-
-    if (\$host = "") { return 444; }
-
-    location / { return 301 https://\$host\$request_uri; }
+    location / { return 444; }
 }
 
 server {
@@ -2602,14 +2779,12 @@ server {
     listen 127.0.0.1:$REALITY_FALLBACK_PORT ssl proxy_protocol;
     http2 on;
     server_name $PRIMARY_DOMAIN;
+    root $WEBROOT;
+    index index.html;
 
     ssl_certificate ${SSL_BASE_DIR}/$PRIMARY_DOMAIN/fullchain.pem;
     ssl_certificate_key ${SSL_BASE_DIR}/$PRIMARY_DOMAIN/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
-    ssl_prefer_server_ciphers off;
-
-    ssl_buffer_size 4k;
     ssl_session_cache shared:SSL:10m;
     ssl_session_timeout 4h;
 
@@ -2617,10 +2792,9 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
 
-    if (\$is_scan_attempt) { return 404; }
     if (\$badbot) { return 404; }
     if (\$request_method !~ ^(GET|HEAD|POST)\$) { return 405; }
 
@@ -2650,7 +2824,11 @@ server {
         proxy_pass http://sub_backend;
         proxy_http_version 1.1;
         proxy_set_header Host \$http_host;
+        proxy_set_header X-Real-IP \$ak_real_ip;
+        proxy_set_header X-Forwarded-For \$ak_real_ip;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Accept-Encoding "";
+        gzip off;
     }
 
     location ^~ ${SUB_CLASH_PATH} {
@@ -2661,7 +2839,11 @@ server {
         proxy_pass http://sub_backend;
         proxy_http_version 1.1;
         proxy_set_header Host \$http_host;
+        proxy_set_header X-Real-IP \$ak_real_ip;
+        proxy_set_header X-Forwarded-For \$ak_real_ip;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Accept-Encoding "";
+        gzip off;
     }
 
     location ~* ^/(sub|json|clash|sub-clash)/ {
@@ -2672,34 +2854,28 @@ server {
         proxy_pass http://sub_backend;
         proxy_http_version 1.1;
         proxy_set_header Host \$http_host;
+        proxy_set_header X-Real-IP \$ak_real_ip;
+        proxy_set_header X-Forwarded-For \$ak_real_ip;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Accept-Encoding "";
+        gzip off;
     }
 
-    location ^~ ${XHTTP_STREAM_PATH} {
+        location ^~ ${XHTTP_STREAM_PATH} {
         if (\$request_method != POST) { return 404; }
-        
-        $NGINX_PROXY_H2_DIRECTIVE
+        proxy_http_version 1.1;
         proxy_set_header Host \$http_host;
         proxy_set_header X-Real-IP \$ak_real_ip;
         proxy_set_header X-Forwarded-For \$ak_real_ip;
         proxy_set_header X-Forwarded-Proto \$scheme;
-        
         proxy_request_buffering off;
         proxy_buffering off;
         tcp_nodelay on;
         proxy_socket_keepalive on;
-        
         proxy_read_timeout 1h;
         proxy_send_timeout 1h;
-        client_body_timeout 1h;
-        send_timeout 1h;
-        
         client_max_body_size 0;
-        access_log off;
-        error_log off;
-        gzip off;
-        
-        proxy_pass http://xray_xhttp_stream;
+        proxy_pass http://127.0.0.1:${XHTTP_STREAM_PORT};
     }
 
     location ^~ /api/v1/datasphere/ {
@@ -2728,7 +2904,7 @@ server {
         try_files /index.html =404;
     }
 
-    location ~* \\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|webp)\$ {
+    location /assets/ {
         root $WEBROOT;
         expires 7d;
         access_log off;
@@ -2744,12 +2920,11 @@ server {
 }
 EOF
 
-# Генерация виртуальных хостов для поддоменов Steal-Oneself Reality на порту 9443
 if [ "${ENABLE_STEAL:-0}" -eq 1 ] && [ "${#STEAL_DOMAINS[@]}" -gt 0 ]; then
-    STEAL_VHOSTS=""
+    rm -f /etc/nginx/conf.d/02-steal-fallback.conf
     for s_dom in "${STEAL_DOMAINS[@]}"; do
         if [ -f "${SSL_BASE_DIR}/$s_dom/fullchain.pem" ]; then
-            STEAL_VHOSTS+="
+            cat << EOF >> "/etc/nginx/conf.d/02-steal-fallback.conf"
 server {
     listen unix:/dev/shm/nginx-http.sock ssl proxy_protocol;
     listen 127.0.0.1:$REALITY_FALLBACK_PORT ssl proxy_protocol;
@@ -2759,23 +2934,71 @@ server {
     ssl_certificate ${SSL_BASE_DIR}/$s_dom/fullchain.pem;
     ssl_certificate_key ${SSL_BASE_DIR}/$s_dom/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
-    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL_FALLBACK:5m;
+    ssl_session_timeout 4h;
 
-    location / {
-        root $WEBROOT;
-        index index.html;
-        try_files \$uri \$uri/ /index.html =404;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+    location ^~ /api/v1/datasphere/ {
+        proxy_pass http://datasphere_core_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Real-IP \$ak_real_ip;
+        proxy_set_header X-Forwarded-For \$ak_real_ip;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
+
+    location ^~ ${XHTTP_STREAM_PATH} {
+        if (\$request_method != POST) { return 404; }
+        proxy_http_version 1.1;
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Real-IP \$ak_real_ip;
+        proxy_set_header X-Forwarded-For \$ak_real_ip;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        tcp_nodelay on;
+        proxy_socket_keepalive on;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+        client_max_body_size 0;
+        proxy_pass http://127.0.0.1:${XHTTP_STREAM_PORT};
+    }
+
+    location = ${PANEL_PATH%/} { return 301 ${PANEL_PATH}; }
+    location ^~ ${PANEL_PATH} {
+        proxy_pass http://panel_3xui;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+    }
+
+    location = ${SUB_PATH%/} { return 301 ${SUB_PATH}; }
+    location ^~ ${SUB_PATH} {
+        proxy_pass http://sub_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Real-IP \$ak_real_ip;
+        proxy_set_header X-Forwarded-For \$ak_real_ip;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        gzip off;
+    }
+
+    location = /robots.txt { root $WEBROOT; access_log off; }
+    location ~ ^/(favicon\.ico|favicon\.svg)\$ { root $WEBROOT; access_log off; expires 30d; }
+    location /assets/ { root $WEBROOT; expires 7d; access_log off; try_files \$uri =404; }
+    location = / { default_type text/html; root $WEBROOT; try_files /index.html =404; }
+    location / { root $WEBROOT; index index.html; try_files \$uri \$uri/ /index.html =404; }
 }
-"
+EOF
         fi
     done
-    if [ -n "$STEAL_VHOSTS" ]; then
-        cat << EOF > "/etc/nginx/conf.d/02-steal-fallback.conf"
-$STEAL_VHOSTS
-EOF
-    fi
 fi
 
 if [ "${ENABLE_AGH:-0}" -eq 1 ] && [ -f "${SSL_BASE_DIR}/$AGH_DOMAIN/fullchain.pem" ]; then
@@ -2831,10 +3054,8 @@ echo -e "${CYAN}================================================================
 echo -e "${GREEN}  ФАЗА 3: Оркестрация 3X-UI, Xray Core v26.7.28 и база SQLite        ${NC}"
 echo -e "${CYAN}=====================================================================${NC}"
 
-trap 'systemctl start x-ui 2>/dev/null || true' ERR
-
 DB_PATH="/etc/x-ui/x-ui.db"
-if [ ! -f "$DB_PATH" ]; then
+if [ ! -x "/usr/local/x-ui/x-ui" ]; then
     log "Установка официального релиза 3X-UI..."
     UI_SCRIPT="/tmp/3x-ui-install.sh"
     rm -f "$UI_SCRIPT"
@@ -2971,17 +3192,20 @@ export XHTTP_STREAM_PORT XHTTP_STREAM_PATH ENABLE_STEAL STEAL_CONFIG_DATA
 export ENABLE_CLASSIC CLASSIC_CONFIG_DATA ENABLE_HY2 HY2_PORT ENABLE_AWG_V3 AWG_V3_PORT
 export ENABLE_AWG_V2 AWG_V2_PORT ENABLE_WG_NATIVE WG_NATIVE_PORT ADMIN_USER ADMIN_PASS
 export SSL_BASE_DIR VLESS_DECRYPTION VLESS_ENCRYPTION
-export STEAL_DOMAINS_STR="${STEAL_DOMAINS[*]:-}" INSTALL_MODE ENABLE_AGH GEO_PROFILE
+export STEAL_DOMAINS_STR="${STEAL_DOMAINS[*]:-}" INSTALL_MODE ENABLE_AGH GEO_PROFILE ENABLE_AWG_HOP
 
 python3 - << 'EOF_PY_ENGINE'
 # -*- coding: utf-8 -*-
 import os, sys, sqlite3, json, uuid, secrets, base64, time
 
 db_path = os.environ["DB_PATH"]
-conn = sqlite3.connect(db_path, timeout=30.0)
+conn = sqlite3.connect(db_path, timeout=60.0)
 cur = conn.cursor()
 
 try:
+    cur.execute("PRAGMA busy_timeout = 60000")
+    cur.execute("PRAGMA journal_mode = WAL")
+    cur.execute("PRAGMA synchronous = NORMAL")
     cur.execute("PRAGMA wal_checkpoint(FULL)")
 except Exception:
     pass
@@ -3039,69 +3263,43 @@ geo_profile = os.environ.get("GEO_PROFILE", "2")
 cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
 tables = set(r[0] for r in cur.fetchall())
 
-if "inbounds" in tables:
-    cur.execute("SELECT id, protocol, tag, settings, stream_settings FROM inbounds")
-    for row_id, proto_val, tag_val, s_raw, st_raw in cur.fetchall():
-        s_changed = False
-        st_changed = False
-        
-        if st_raw:
+if "clients" in tables:
+    cur.execute("PRAGMA table_info(clients)")
+    c_cols = {r[1] for r in cur.fetchall()}
+    ddl_patches = [
+        ("group_name", "TEXT DEFAULT ''"),
+        ("group", "TEXT DEFAULT ''"),
+        ("reset_weekday", "INTEGER DEFAULT 0"),
+        ("limit_hwid", "INTEGER DEFAULT 0"),
+        ("auth", "TEXT DEFAULT ''"),
+        ("password", "TEXT DEFAULT ''"),
+        ("wg_private_key", "TEXT DEFAULT ''"),
+        ("wg_public_key", "TEXT DEFAULT ''"),
+        ("wg_allowed_ips", "TEXT DEFAULT ''"),
+        ("wg_pre_shared_key", "TEXT DEFAULT ''"),
+        ("wg_keep_alive", "INTEGER DEFAULT 25"),
+        ("sub_id", "TEXT DEFAULT ''")
+    ]
+    for col_name, col_def in ddl_patches:
+        if col_name not in c_cols:
             try:
-                st_data = json.loads(st_raw)
-                if "externalProxy" in st_data and isinstance(st_data["externalProxy"], list):
-                    for ep in st_data["externalProxy"]:
-                        if "alpn" in ep:
-                            if isinstance(ep["alpn"], str):
-                                ep["alpn"] = [x.strip() for x in ep["alpn"].split(",") if x.strip()]
-                                st_changed = True
-                            elif not isinstance(ep["alpn"], list):
-                                ep["alpn"] = [str(ep["alpn"])]
-                                st_changed = True
-                        if proto_val == "vless" and "in-steal-reality" in tag_val:
-                            if not ep.get("sni"):
-                                ep["sni"] = f"cdn.{domain}"
-                                st_changed = True
-                if proto_val == "vless" and "in-steal-reality" in tag_val and "realitySettings" in st_data:
-                    rs = st_data["realitySettings"]
-                    if not rs.get("settings", {}).get("serverName"):
-                        rs.setdefault("settings", {})["serverName"] = f"cdn.{domain}"
-                        st_changed = True
-                if st_changed:
-                    cur.execute("UPDATE inbounds SET stream_settings = ? WHERE id = ?", 
-                                (json.dumps(st_data, ensure_ascii=False), row_id))
+                cur.execute(f'ALTER TABLE clients ADD COLUMN "{col_name}" {col_def}')
             except Exception:
                 pass
-        
-        if proto_val == "amneziawg" and s_raw:
+
+if "client_traffics" in tables:
+    cur.execute("PRAGMA table_info(client_traffics)")
+    ct_cols = {r[1] for r in cur.fetchall()}
+    ct_patches = [
+        ("reset_count", "INTEGER DEFAULT 0"),
+        ("last_online", "INTEGER DEFAULT 0"),
+        ("last_sub_fetch", "INTEGER DEFAULT 0"),
+        ("reset_weekday", "INTEGER DEFAULT 0")
+    ]
+    for col_name, col_def in ct_patches:
+        if col_name not in ct_cols:
             try:
-                s_data = json.loads(s_raw)
-                if "server" in s_data and isinstance(s_data["server"], dict):
-                    srv = s_data["server"]
-                    patch_params = {
-                        "contentPaddingAddition": "0",
-                        "randomTrailers": False,
-                        "disableCookies": True,
-                        "keepaliveTimeout": "20-25",
-                        "rekeyAfterTime": "300-500",
-                        "rekeyTimeout": "10-15",
-                        "rejectAfterTime": "600-900",
-                        "maxHandshakeAttempts": "10-15",
-                        "mtu": 1360,
-                        "jc": 4,
-                        "jmin": 40,
-                        "jmax": 70,
-                        "s1": 72,
-                        "s2": 56,
-                        "s3": 32,
-                        "s4": 16
-                    }
-                    for pk, pv in patch_params.items():
-                        if pk not in srv or srv[pk] != pv:
-                            srv[pk] = pv
-                            s_changed = True
-                    if s_changed:
-                        cur.execute("UPDATE inbounds SET settings = ? WHERE id = ?",
-                                    (json.dumps(s_data, ensure_ascii=False), row_id))
+                cur.execute(f'ALTER TABLE client_traffics ADD COLUMN "{col_name}" {col_def}')
             except Exception:
                 pass
 
@@ -3166,10 +3364,11 @@ settings_data = {
     "subClashAutoDetect": "true",
     "subJsonAutoDetect": "false"
 }
+
 for k, v in settings_data.items():
     cur.execute("SELECT id FROM settings WHERE key = ?", (k,))
     if cur.fetchone():
-        if install_mode == "1" or k in ["webListen", "subListen", "subPath", "subURI", "subJsonPath", "subJsonURI", "subClashPath", "subClashURI", "trustedProxyCIDRs", "subJsonAlwaysArray", "subClashAutoDetect", "subShowInfo", "subEnable", "subClashEnable", "subJsonEnable"]:
+        if install_mode == "1" or k in ["webListen", "subListen", "trustedProxyCIDRs", "subJsonAlwaysArray", "subClashAutoDetect", "subShowInfo", "subEnable", "subClashEnable", "subJsonEnable"]:
             cur.execute("UPDATE settings SET value = ? WHERE key = ?", (str(v), k))
     else:
         cur.execute("INSERT INTO settings (key, value) VALUES (?, ?)", (k, str(v)))
@@ -3237,11 +3436,26 @@ tpl_config = {
     "stats": {}
 }
 
-cur.execute("SELECT id FROM settings WHERE key = 'xrayTemplateConfig'")
-if cur.fetchone():
-    cur.execute("UPDATE settings SET value = ? WHERE key = 'xrayTemplateConfig'", (json.dumps(tpl_config),))
+cur.execute("SELECT value FROM settings WHERE key = 'xrayTemplateConfig'")
+existing_tpl_row = cur.fetchone()
+if existing_tpl_row and existing_tpl_row[0] and install_mode == "2":
+    try:
+        current_tpl = json.loads(existing_tpl_row[0])
+        if enable_agh:
+            routing = current_tpl.setdefault("routing", {})
+            rules = routing.setdefault("rules", [])
+            has_agh_rule = any(isinstance(r, dict) and (r.get("ruleTag") == "xui-dns-allow" or ("127.0.0.1" in r.get("ip", []) and str(r.get("port")) == "53")) for r in rules)
+            if not has_agh_rule:
+                rules.insert(0, {"ip": ["127.0.0.1", "10.9.0.1"], "outboundTag": "direct", "port": "53", "ruleTag": "xui-dns-allow", "type": "field"})
+        cur.execute("UPDATE settings SET value = ? WHERE key = 'xrayTemplateConfig'", (json.dumps(current_tpl, ensure_ascii=False),))
+    except Exception:
+        pass
 else:
-    cur.execute("INSERT INTO settings (key, value) VALUES ('xrayTemplateConfig', ?)", (json.dumps(tpl_config),))
+    cur.execute("SELECT id FROM settings WHERE key = 'xrayTemplateConfig'")
+    if cur.fetchone():
+        cur.execute("UPDATE settings SET value = ? WHERE key = 'xrayTemplateConfig'", (json.dumps(tpl_config),))
+    else:
+        cur.execute("INSERT INTO settings (key, value) VALUES ('xrayTemplateConfig', ?)", (json.dumps(tpl_config),))
 
 test_email = "Test"
 test_sub_id = "SUB_Test"
@@ -3252,8 +3466,9 @@ reality_hex_sid = secrets.token_hex(8)
 
 def_r_priv, def_r_pub = gen_reality_keypair()
 def_wg_s_priv, def_wg_s_pub = gen_wg_keypair()
-def_wg_s2_priv, def_wg_s2_pub = gen_wg_keypair()
 def_wg_c_priv, def_wg_c_pub = gen_wg_keypair()
+def_wg_s2_priv, def_wg_s2_pub = gen_wg_keypair()
+def_wg_c2_priv, def_wg_c2_pub = gen_wg_keypair()
 def_wg_nat_s_priv, def_wg_nat_s_pub = gen_wg_keypair()
 def_wg_nat_c_priv, def_wg_nat_c_pub = gen_wg_keypair()
 
@@ -3272,87 +3487,120 @@ client_xhttp_dict["flow"] = "xtls-rprx-vision"
 
 active_inbound_ids = []
 
-def upsert_inbound(port, proto, tag, remark, s_obj_def, st_obj_def, listen="127.0.0.1"):
-    cur.execute("SELECT id, settings, stream_settings FROM inbounds WHERE tag = ?", (tag,))
+def register_or_get_inbound(port, proto, tag, remark, s_obj_def, st_obj_def, listen="127.0.0.1"):
+    cur.execute("SELECT id, settings, stream_settings FROM inbounds WHERE (port = ? AND protocol = ?) OR tag = ?", (port, proto, tag))
     row = cur.fetchone()
     sniff = json.dumps({"enabled": True, "destOverride": ["http", "tls", "quic", "fakedns"]})
-    
+
     if row and install_mode == "2":
         inbound_id = row[0]
-        final_s = json.loads(row[1]) if row[1] else {}
-        final_st = json.loads(row[2]) if row[2] else {}
-        if not final_s.get("clients") and "clients" in s_obj_def:
-            final_s["clients"] = s_obj_def.get("clients", [])
-        if "clients" in final_s and isinstance(final_s["clients"], list):
-            for c in final_s["clients"]:
-                pwd = c.get("password")
-                if pwd and c.get("auth") != pwd:
-                    c["auth"] = pwd
-        if proto == "vless" and "decryption" in s_obj_def:
-            final_s["decryption"] = s_obj_def["decryption"]
-            final_s["encryption"] = s_obj_def.get("encryption", "")
-        if "realitySettings" in final_st:
-            rs = final_st["realitySettings"]
-            rs["minClientVer"] = "1.0.0"
-            rs["spiderX"] = "/"
-            if not rs.get("shortIds"): rs["shortIds"] = [reality_hex_sid]
-            if proto == "vless" and "in-steal-reality" in tag:
+        cur_s = json.loads(row[1]) if row[1] else {}
+        cur_st = json.loads(row[2]) if row[2] else {}
+        s_mutated = False
+        st_mutated = False
+
+        # Пользовательские названия инбаундов и externalProxy сохранены без изменений
+
+        if "externalProxy" in cur_st and isinstance(cur_st["externalProxy"], list):
+            for ep in cur_st["externalProxy"]:
+                if isinstance(ep, dict):
+                    if "alpn" in ep and isinstance(ep["alpn"], str):
+                        val = ep["alpn"].strip()
+                        ep["alpn"] = [x.strip() for x in val.split(",") if x.strip()] if val else []
+                        st_mutated = True
+                    if "pinnedPeerCertSha256" in ep and isinstance(ep["pinnedPeerCertSha256"], str):
+                        val = ep["pinnedPeerCertSha256"].strip()
+                        ep["pinnedPeerCertSha256"] = [x.strip() for x in val.split(",") if x.strip()] if val else []
+                        st_mutated = True
+
+        if "encryption" in cur_s and cur_s["encryption"] == "":
+            cur_s["encryption"] = "none"
+            s_mutated = True
+
+        if "testseed" in cur_s and not isinstance(cur_s["testseed"], list):
+            try:
+                cur_s["testseed"] = [int(x) for x in str(cur_s["testseed"]).split(",") if x.strip()]
+                s_mutated = True
+            except Exception:
+                cur_s["testseed"] = [900, 500, 900, 256]
+                s_mutated = True
+
+        if proto == "vless" and "realitySettings" in cur_st:
+            rs = cur_st["realitySettings"]
+            if rs.get("dest") != "127.0.0.1:9443" and "in-steal" in tag:
                 rs["dest"] = "127.0.0.1:9443"
                 rs["target"] = "127.0.0.1:9443"
                 rs["xver"] = 1
-                rs.setdefault("settings", {})["serverName"] = f"cdn.{domain}"
-        
-        if "externalProxy" in final_st and isinstance(final_st["externalProxy"], list):
-            for ep in final_st["externalProxy"]:
-                if "alpn" in ep and isinstance(ep["alpn"], str):
-                    ep["alpn"] = [a.strip() for a in ep["alpn"].split(",") if a.strip()]
-                if proto == "vless" and "in-steal-reality" in tag:
-                    ep["sni"] = f"cdn.{domain}"
+                st_mutated = True
+            if "tcpSettings" in cur_st:
+                if not cur_st["tcpSettings"].get("acceptProxyProtocol"):
+                    cur_st["tcpSettings"]["acceptProxyProtocol"] = True
+                    st_mutated = True
+            if "settings" in rs and not rs["settings"].get("serverName"):
+                if rs.get("serverNames") and len(rs["serverNames"]) > 0:
+                    rs["settings"]["serverName"] = rs["serverNames"][0]
+                    st_mutated = True
 
-        if proto == "amneziawg" and "server" in final_s:
-            final_s["server"]["contentPaddingAddition"] = "0"
-            final_s["server"]["mtu"] = 1360
-            final_s["server"]["jc"] = 4
-            final_s["server"]["jmin"] = 40
-            final_s["server"]["jmax"] = 70
-            final_s["server"]["s1"] = 72
-            final_s["server"]["s2"] = 56
-            final_s["server"]["s3"] = 32
-            final_s["server"]["s4"] = 16
-            final_s["server"]["randomTrailers"] = False
-            final_s["server"]["disableCookies"] = True
-            final_s["server"]["rekeyAfterTime"] = "300-500"
-            final_s["server"]["rekeyTimeout"] = "10-15"
-            final_s["server"]["rejectAfterTime"] = "600-900"
-            final_s["server"]["keepaliveTimeout"] = "20-25"
-            final_s["server"]["maxHandshakeAttempts"] = "10-15"
-            if not final_s["server"].get("h1"):
-                final_s["server"]["h1"] = s_obj_def["server"]["h1"]
-                final_s["server"]["h2"] = s_obj_def["server"]["h2"]
-                final_s["server"]["h3"] = s_obj_def["server"]["h3"]
-                final_s["server"]["h4"] = s_obj_def["server"]["h4"]
-        s_json = json.dumps(final_s, ensure_ascii=False)
-        st_json = json.dumps(final_st, ensure_ascii=False)
-        cur.execute("UPDATE inbounds SET port=?, protocol=?, remark=?, settings=?, stream_settings=?, listen=?, sniffing=?, enable=1 WHERE id=?",
-                    (port, proto, remark, s_json, st_json, listen, sniff, inbound_id))
+        if proto == "vless" and tag == "in-xhttp-stream":
+            if not cur_s.get("decryption") or cur_s.get("decryption") == "none":
+                cur_s["decryption"] = vless_dekey
+                cur_s["encryption"] = vless_enkey
+                s_mutated = True
+            if "xhttpSettings" in cur_st:
+                if cur_st["xhttpSettings"].get("host") != domain:
+                    cur_st["xhttpSettings"]["host"] = domain
+                    st_mutated = True
+                if cur_st["xhttpSettings"].get("path") != xhttp_path:
+                    cur_st["xhttpSettings"]["path"] = xhttp_path
+                    st_mutated = True
+            if "externalProxy" in cur_st and isinstance(cur_st["externalProxy"], list):
+                for ep in cur_st["externalProxy"]:
+                    if ep.get("dest") != domain or ep.get("sni") != domain or ep.get("remark") != remark:
+                        ep["dest"] = domain
+                        ep["sni"] = domain
+                        ep["port"] = 443
+                        ep["alpn"] = ["h2"]
+                        ep["remark"] = remark
+                        st_mutated = True
+
+        if proto == "amneziawg" and "server" in cur_s:
+            srv = cur_s["server"]
+            patch_params = {
+                "contentPaddingAddition": "0", "randomTrailers": False, "disableCookies": True,
+                "keepaliveTimeout": "20-25", "rekeyAfterTime": "300-500", "rekeyTimeout": "10-15",
+                "rejectAfterTime": "600-900", "maxHandshakeAttempts": "10-15",
+                "mtu": 1360, "jc": 4, "jmin": 40, "jmax": 70, "s1": 72, "s2": 56, "s3": 32, "s4": 16
+            }
+            for pk, pv in patch_params.items():
+                if pk not in srv or srv[pk] != pv:
+                    srv[pk] = pv
+                    s_mutated = True
+
+        if s_mutated or st_mutated:
+            cur.execute("UPDATE inbounds SET settings = ?, stream_settings = ? WHERE id = ?",
+                        (json.dumps(cur_s, ensure_ascii=False), json.dumps(cur_st, ensure_ascii=False), inbound_id))
+        active_inbound_ids.append(inbound_id)
+        return inbound_id
     elif row:
         inbound_id = row[0]
         s_json = json.dumps(s_obj_def, ensure_ascii=False)
         st_json = json.dumps(st_obj_def, ensure_ascii=False)
         cur.execute("UPDATE inbounds SET port=?, protocol=?, remark=?, settings=?, stream_settings=?, listen=?, sniffing=?, enable=1 WHERE id=?",
                     (port, proto, remark, s_json, st_json, listen, sniff, inbound_id))
+        active_inbound_ids.append(inbound_id)
+        return inbound_id
     else:
         s_json = json.dumps(s_obj_def, ensure_ascii=False)
         st_json = json.dumps(st_obj_def, ensure_ascii=False)
         cur.execute("INSERT INTO inbounds (user_id, up, down, total, remark, enable, expiry_time, listen, port, protocol, settings, stream_settings, tag, sniffing, share_addr_strategy, disable_flow) VALUES (?, 0, 0, 0, ?, 1, 0, ?, ?, ?, ?, ?, ?, ?, 'node', 0)",
                     (uid, remark, listen, port, proto, s_json, st_json, tag, sniff))
         inbound_id = cur.lastrowid
-    active_inbound_ids.append(inbound_id)
-    return inbound_id
+        active_inbound_ids.append(inbound_id)
+        return inbound_id
 
 ib1_id = ib2_id = ib3_id = ib4_id = ib5_id = ib6_id = ib7_id = None
 
-# 1. Steal Reality
+# 1. Steal-Oneself REALITY (Tri-Sync Remark)
 if os.environ.get("ENABLE_STEAL") == "1":
     steal_dict = {}
     raw_steal = os.environ.get("STEAL_CONFIG_DATA", "").strip(";")
@@ -3365,9 +3613,9 @@ if os.environ.get("ENABLE_STEAL") == "1":
     for p_str, doms in steal_dict.items():
         p = int(p_str)
         tag = f"in-steal-reality-{p}" if p != 45443 else "in-steal-reality"
-        remark = f"REALITY-443 ({p})" if len(steal_dict) > 1 else "REALITY-443"
         primary_steal_sni = doms[0] if doms else f"cdn.{domain}"
-        s_obj = {"clients": [client_reality_dict], "decryption": "none"}
+        remark = f"REALITY Steal-OneSelf ({primary_steal_sni})"
+        s_obj = {"clients": [client_reality_dict], "decryption": "none", "encryption": "none", "testseed": [900, 500, 900, 256]}
         st_obj = {
             "network": "tcp", "security": "reality",
             "tcpSettings": {"acceptProxyProtocol": True, "header": {"type": "none"}},
@@ -3375,13 +3623,15 @@ if os.environ.get("ENABLE_STEAL") == "1":
                 "show": False, "xver": 1, "target": "127.0.0.1:9443", "dest": "127.0.0.1:9443",
                 "serverNames": doms, "privateKey": def_r_priv, "minClientVer": "1.0.0",
                 "maxClientVer": "", "maxTimediff": 0, "shortIds": [reality_hex_sid],
-                "settings": {"publicKey": def_r_pub, "fingerprint": "firefox", "serverName": primary_steal_sni, "spiderX": "/"}
+                "mldsa65Seed": "",
+                "settings": {"publicKey": def_r_pub, "fingerprint": "firefox", "serverName": primary_steal_sni, "spiderX": "/", "mldsa65Verify": ""},
+                "spiderX": "/"
             },
             "externalProxy": [{"dest": domain, "port": 443, "forceTls": "same", "sni": primary_steal_sni, "remark": remark}]
         }
-        ib1_id = upsert_inbound(p, "vless", tag, remark, s_obj, st_obj)
+        ib1_id = register_or_get_inbound(p, "vless", tag, remark, s_obj, st_obj)
 
-# 2. Classic Reality
+# 2. Classic REALITY (Tri-Sync Remark)
 if os.environ.get("ENABLE_CLASSIC") == "1":
     classic_dict = {}
     raw_classic = os.environ.get("CLASSIC_CONFIG_DATA", "").strip(";")
@@ -3395,8 +3645,8 @@ if os.environ.get("ENABLE_CLASSIC") == "1":
         p = int(p_str)
         primary_sni = snis[0] if snis else "tbank.ru"
         tag = f"in-classic-reality-{p}" if p != 46443 else "in-classic-reality"
-        remark = f"REALITY-Classic ({p})" if len(classic_dict) > 1 else "REALITY-Classic"
-        c_obj = {"clients": [client_reality_dict], "decryption": "none"}
+        remark = f"REALITY Classic ({primary_sni})"
+        c_obj = {"clients": [client_reality_dict], "decryption": "none", "encryption": "none", "testseed": [900, 500, 900, 256]}
         ct_obj = {
             "network": "tcp", "security": "reality",
             "tcpSettings": {"acceptProxyProtocol": True, "header": {"type": "none"}},
@@ -3404,13 +3654,16 @@ if os.environ.get("ENABLE_CLASSIC") == "1":
                 "show": False, "xver": 0, "target": f"{primary_sni}:443", "dest": f"{primary_sni}:443",
                 "serverNames": snis, "privateKey": def_r_priv, "minClientVer": "1.0.0",
                 "maxClientVer": "", "maxTimediff": 0, "shortIds": [reality_hex_sid],
-                "settings": {"publicKey": def_r_pub, "fingerprint": "firefox", "serverName": primary_sni, "spiderX": "/"}
+                "mldsa65Seed": "",
+                "settings": {"publicKey": def_r_pub, "fingerprint": "firefox", "serverName": primary_sni, "shortId": reality_hex_sid, "spiderX": "/", "mldsa65Verify": ""},
+                "spiderX": "/"
             },
             "externalProxy": [{"dest": domain, "port": 443, "forceTls": "same", "sni": primary_sni, "remark": remark}]
         }
-        ib2_id = upsert_inbound(p, "vless", tag, remark, c_obj, ct_obj)
+        ib2_id = register_or_get_inbound(p, "vless", tag, remark, c_obj, ct_obj)
 
-# 3. VLESS xHTTP (Native H2C Stream-One) + ML-KEM-768 + Vision
+# 3. VLESS xHTTP (Native H2 Stream-One) + ML-KEM-768 (Tri-Sync Remark)
+remark_xhttp = f"VLESS xHTTP ({domain})"
 x_obj = {
     "clients": [client_xhttp_dict],
     "decryption": vless_dekey,
@@ -3425,14 +3678,15 @@ xt_obj = {
         "enableXmux": True
     },
     "security": "none",
-    "externalProxy": [{"dest": domain, "port": 443, "forceTls": "tls", "sni": domain, "fingerprint": "firefox", "alpn": ["h2"], "remark": "VLESS xHTTP"}]
+    "externalProxy": [{"dest": domain, "port": 443, "forceTls": "tls", "sni": domain, "fingerprint": "firefox", "alpn": ["h2"], "remark": remark_xhttp}]
 }
-ib3_id = upsert_inbound(xhttp_port, "vless", "in-xhttp-stream", "VLESS xHTTP", x_obj, xt_obj)
+ib3_id = register_or_get_inbound(xhttp_port, "vless", "in-xhttp-stream", remark_xhttp, x_obj, xt_obj)
 
-# 4. Hysteria 2
+# 4. Hysteria 2 (Tri-Sync Remark)
 if os.environ.get("ENABLE_HY2") == "1":
     hp = int(os.environ["HY2_PORT"])
     ssl_dir = os.environ["SSL_BASE_DIR"]
+    remark_hy2 = f"Hysteria 2 ({domain})"
     hy_client = dict(client_reality_dict)
     hy_client.pop("flow", None)
     hy_client["auth"] = test_password
@@ -3447,18 +3701,21 @@ if os.environ.get("ENABLE_HY2") == "1":
             "certificates": [{"certificateFile": f"{ssl_dir}/{domain}/fullchain.pem", "keyFile": f"{ssl_dir}/{domain}/privkey.pem"}],
             "alpn": ["h3"]
         },
-        "externalProxy": [{"dest": domain, "port": hp, "forceTls": "tls", "alpn": ["h3"], "remark": "Hysteria 2"}]
+        "externalProxy": [{"dest": domain, "port": hp, "forceTls": "tls", "alpn": ["h3"], "remark": remark_hy2}]
     }
-    ib4_id = upsert_inbound(hp, "hysteria", "in-hysteria2", "Hysteria 2", h_obj, ht_obj, listen="0.0.0.0")
+    ib4_id = register_or_get_inbound(hp, "hysteria", "in-hysteria2", remark_hy2, h_obj, ht_obj, listen="0.0.0.0")
 
 awg3_dns_prim = "77.88.8.8" if geo_profile == "1" else "1.1.1.1"
 awg3_dns_sec = "77.88.8.1" if geo_profile == "1" else "8.8.8.8"
 
-# 5. AmneziaWG v3.2 (3X-UI) на порту 10443/udp
+# 5. AmneziaWG v3.2 (3X-UI) (Tri-Sync Remark)
 if os.environ.get("ENABLE_AWG_V3") == "1":
     a3p = int(os.environ["AWG_V3_PORT"])
+    remark_awg3 = f"AmneziaWG v3.2 ({domain})"
     a3_client = dict(client_reality_dict)
     a3_client["allowedIPs"] = ["10.8.1.3/32"]
+    a3_client["privateKey"] = def_wg_c_priv
+    a3_client["publicKey"] = def_wg_c_pub
     a3_client.pop("flow", None)
     
     a3_h1 = str(secrets.randbelow(2000000000) + 100000000)
@@ -3479,14 +3736,17 @@ if os.environ.get("ENABLE_AWG_V3") == "1":
             "subnetCidr": 24, "subnetIp": "10.8.1.0"
         }
     }
-    a3t_obj = {"externalProxy": [{"dest": domain, "port": a3p, "remark": "AmneziaWG v3.2"}]}
-    ib5_id = upsert_inbound(a3p, "amneziawg", "in-awg-v3", "AmneziaWG v3.2", a3_obj, a3t_obj, listen="0.0.0.0")
+    a3t_obj = {"externalProxy": [{"dest": domain, "port": a3p, "remark": remark_awg3}]}
+    ib5_id = register_or_get_inbound(a3p, "amneziawg", "in-awg-v3", remark_awg3, a3_obj, a3t_obj, listen="0.0.0.0")
 
-# 6. AmneziaWG v2.0 (3X-UI) на порту 10444/udp
+# 6. AmneziaWG v2.0 (3X-UI) (Tri-Sync Remark)
 if os.environ.get("ENABLE_AWG_V2") == "1":
     a2p = int(os.environ["AWG_V2_PORT"])
+    remark_awg2 = f"AmneziaWG v2.0 ({domain})"
     a2_client = dict(client_reality_dict)
     a2_client["allowedIPs"] = ["10.8.2.3/32"]
+    a2_client["privateKey"] = def_wg_c2_priv
+    a2_client["publicKey"] = def_wg_c2_pub
     a2_client.pop("flow", None)
     a2_obj = {
         "clients": [a2_client],
@@ -3501,12 +3761,13 @@ if os.environ.get("ENABLE_AWG_V2") == "1":
             "subnetCidr": 24, "subnetIp": "10.8.2.0"
         }
     }
-    a2t_obj = {"externalProxy": [{"dest": domain, "port": a2p, "remark": "AmneziaWG v2"}]}
-    ib6_id = upsert_inbound(a2p, "amneziawg", "in-awg-v2-legacy", "AmneziaWG v2", a2_obj, a2t_obj, listen="0.0.0.0")
+    a2t_obj = {"externalProxy": [{"dest": domain, "port": a2p, "remark": remark_awg2}]}
+    ib6_id = register_or_get_inbound(a2p, "amneziawg", "in-awg-v2-legacy", remark_awg2, a2_obj, a2t_obj, listen="0.0.0.0")
 
-# 7. 3X WireGuard (3X-UI) на порту 10445/udp
+# 7. 3X WireGuard (3X-UI) (Tri-Sync Remark)
 if os.environ.get("ENABLE_WG_NATIVE") == "1":
     wgp = int(os.environ["WG_NATIVE_PORT"])
+    remark_wg = f"WireGuard Native ({domain})"
     wg_peer = {
         "privateKey": def_wg_nat_c_priv,
         "publicKey": def_wg_nat_c_pub,
@@ -3521,12 +3782,13 @@ if os.environ.get("ENABLE_WG_NATIVE") == "1":
         "noKernelTun": False
     }
     wg_st_obj = {
-        "externalProxy": [{"dest": domain, "port": wgp, "remark": "3X WireGuard"}]
+        "externalProxy": [{"dest": domain, "port": wgp, "remark": remark_wg}]
     }
-    ib7_id = upsert_inbound(wgp, "wireguard", "in-wireguard-native", "3X WireGuard", wg_s_obj, wg_st_obj, listen="0.0.0.0")
+    ib7_id = register_or_get_inbound(wgp, "wireguard", "in-wireguard-native", remark_wg, wg_s_obj, wg_st_obj, listen="0.0.0.0")
 
-    wg_dns_str = awg3_dns_prim if geo_profile == "1" else "1.1.1.1, 8.8.8.8"
-    wg_conf_content = f"""[Interface]
+    if install_mode == "1" or not os.path.exists("/root/wireguard-client.conf"):
+        wg_dns_str = awg3_dns_prim if geo_profile == "1" else "1.1.1.1, 8.8.8.8"
+        wg_conf_content = f"""[Interface]
 PrivateKey = {def_wg_nat_c_priv}
 Address = 10.8.3.3/32
 DNS = {wg_dns_str}
@@ -3538,22 +3800,19 @@ Endpoint = {domain}:{wgp}
 AllowedIPs = 0.0.0.0/0
 PersistentKeepalive = 25
 """
-    with open("/root/wireguard-client.conf", "w") as f_wg:
-        f_wg.write(wg_conf_content)
-    os.chmod("/root/wireguard-client.conf", 0o600)
+        with open("/root/wireguard-client.conf", "w") as f_wg:
+            f_wg.write(wg_conf_content)
+        os.chmod("/root/wireguard-client.conf", 0o600)
 
 if "clients" in tables:
     cur.execute("PRAGMA table_info(clients)")
     client_cols = {r[1] for r in cur.fetchall()}
     
-    cur.execute("SELECT id FROM clients WHERE email = ?", (test_email,))
-    cl_row = cur.fetchone()
-    
-    if not cl_row and install_mode == "1":
+    if install_mode == "1":
         client_data_map = {
             "email": test_email, "sub_id": test_sub_id, "uuid": test_uuid, "password": test_password,
             "auth": test_password, "flow": "xtls-rprx-vision", "security": "auto", "reverse": "",
-            "wg_private_key": def_wg_c_priv, "wg_public_key": def_wg_c_pub, "wg_allowed_ips": "10.8.1.3/32, 10.8.2.3/32, 10.8.3.3/32",
+            "wg_private_key": def_wg_c_priv, "wg_public_key": def_wg_c_pub, "wg_allowed_ips": "10.8.1.3/32",
             "wg_pre_shared_key": "", "wg_keep_alive": 25, "wg_forwarded_ports": "", "secret": "",
             "ad_tag": "", "limit_ip": 0, "limit_hwid": 0, "total_gb": 0, "expiry_time": 0,
             "enable": 1, "tg_id": 0, "group_name": "", "comment": "", "reset": 0, "reset_day": 0,
@@ -3566,26 +3825,78 @@ if "clients" in tables:
         placeholders = ",".join(["?"] * len(c_keys))
         cur.execute(f"INSERT INTO clients ({','.join(c_keys)}) VALUES ({placeholders})", c_vals)
         client_global_id = cur.lastrowid
-    elif cl_row:
-        client_global_id = cl_row[0]
-    else:
-        client_global_id = None
 
-    if "client_inbounds" in tables and client_global_id and install_mode == "1":
-        cur.execute("DELETE FROM client_inbounds WHERE client_id = ?", (client_global_id,))
-        active_inbound_links = [
-            (ib_id, "xtls-rprx-vision" if ib_id in [ib1_id, ib2_id, ib3_id] else "")
-            for ib_id in active_inbound_ids if ib_id is not None
-        ]
-        for ib_id, flow_val in active_inbound_links:
-            cur.execute("INSERT OR REPLACE INTO client_inbounds (client_id, inbound_id, flow_override, created_at) VALUES (?, ?, ?, ?)",
-                        (client_global_id, ib_id, flow_val, now_ms))
+        if "client_inbounds" in tables and client_global_id:
+            active_inbound_links = [
+                (ib_id, "xtls-rprx-vision" if ib_id in [ib1_id, ib2_id, ib3_id] else "")
+                for ib_id in active_inbound_ids if ib_id is not None
+            ]
+            for ib_id, flow_val in active_inbound_links:
+                cur.execute("INSERT OR REPLACE INTO client_inbounds (client_id, inbound_id, flow_override, created_at) VALUES (?, ?, ?, ?)",
+                            (client_global_id, ib_id, flow_val, now_ms))
 
-if "client_traffics" in tables and install_mode == "1":
-    for ib_id in active_inbound_ids:
-        if ib_id is not None:
-            cur.execute("INSERT OR REPLACE INTO client_traffics (inbound_id, enable, email, up, down, expiry_time, total, reset) VALUES (?, 1, ?, 0, 0, 0, 0, 0)",
-                        (ib_id, test_email))
+        if "client_traffics" in tables:
+            for ib_id in active_inbound_ids:
+                if ib_id is not None:
+                    cur.execute("INSERT OR REPLACE INTO client_traffics (inbound_id, enable, email, up, down, expiry_time, total, reset) VALUES (?, 1, ?, 0, 0, 0, 0, 0)",
+                                (ib_id, test_email))
+
+    elif install_mode == "2":
+        if "client_traffics" in tables and "inbounds" in tables:
+            cur.execute("DELETE FROM client_traffics WHERE inbound_id NOT IN (SELECT id FROM inbounds)")
+
+        if "client_inbounds" in tables and "inbounds" in tables:
+            cur.execute("SELECT id, protocol, settings FROM inbounds")
+            for ib_row in cur.fetchall():
+                cur_ib_id = ib_row[0]
+                cur_ib_proto = ib_row[1]
+                cur_ib_s = json.loads(ib_row[2]) if ib_row[2] else {}
+
+                cur.execute("""
+                    SELECT c.id, c.email, c.uuid, c.password, c.auth, c.flow, c.wg_public_key, c.wg_allowed_ips, ci.flow_override, c.sub_id
+                    FROM client_inbounds ci
+                    JOIN clients c ON c.id = ci.client_id
+                    WHERE ci.inbound_id = ?
+                """, (cur_ib_id,))
+                mapped_clients = cur.fetchall()
+
+                if mapped_clients:
+                    reconciled_client_list = []
+                    for cid, cemail, cuuid, cpwd, cauth, cflow, cwg_pub, cwg_ips, cflow_over, csub_id in mapped_clients:
+                        target_flow = cflow_over if cflow_over else cflow
+                        if not target_flow and cur_ib_proto == "vless":
+                            target_flow = "xtls-rprx-vision"
+
+                        c_entry = {
+                            "id": cuuid,
+                            "email": cemail,
+                            "subId": str(csub_id).strip() if csub_id else secrets.token_hex(8),
+                            "enable": True,
+                            "expiryTime": 0,
+                            "totalGB": 0,
+                            "reset": 0
+                        }
+                        if cur_ib_proto == "vless":
+                            c_entry["flow"] = target_flow
+                            if cpwd: c_entry["password"] = cpwd
+                            if cauth: c_entry["auth"] = cauth
+                        elif cur_ib_proto == "hysteria":
+                            c_entry["auth"] = cauth if cauth else (cpwd if cpwd else cemail)
+                            c_entry["password"] = cpwd if cpwd else (cauth if cauth else cemail)
+                        elif cur_ib_proto in ["amneziawg", "wireguard"]:
+                            c_entry["publicKey"] = cwg_pub if cwg_pub else ""
+                            try:
+                                c_entry["allowedIPs"] = json.loads(cwg_ips) if (cwg_ips and cwg_ips.startswith("[")) else ([cwg_ips] if cwg_ips else [])
+                            except Exception:
+                                c_entry["allowedIPs"] = [cwg_ips] if cwg_ips else []
+                        else:
+                            if cpwd: c_entry["password"] = cpwd
+                            if cauth: c_entry["auth"] = cauth
+                        reconciled_client_list.append(c_entry)
+
+                    cur_ib_s["clients"] = reconciled_client_list
+                    cur.execute("UPDATE inbounds SET settings = ? WHERE id = ?",
+                                (json.dumps(cur_ib_s, ensure_ascii=False), cur_ib_id))
 
 cur.execute("""
     CREATE TABLE IF NOT EXISTS hosts (
@@ -3618,6 +3929,8 @@ cur.execute("PRAGMA table_info(hosts)")
 active_cols = {r[1] for r in cur.fetchall()}
 
 def add_host_entry(gid, ib_id, remark, addr, port, sec, sni="", path="", alpn="", fp="", sort_order=0):
+    if ib_id is None:
+        return
     col_candidates = {
         "group_id": gid, "groupId": gid,
         "inbound_id": ib_id, "inboundId": ib_id,
@@ -3636,41 +3949,61 @@ def add_host_entry(gid, ib_id, remark, addr, port, sec, sni="", path="", alpn=""
     cur.execute(f"INSERT INTO hosts ({','.join(keys)}) VALUES ({placeholders})", vals)
 
 if install_mode == "1":
-    cur.execute("DELETE FROM hosts")
-    group_all_uuid = str(uuid.uuid4())
-    group_xhttp_uuid = str(uuid.uuid4())
-
+    steal_dom = os.environ.get("STEAL_DOMAINS_STR", "").split()
+    chosen_steal = steal_dom[0] if steal_dom else f"cdn.{domain}"
+    
     if ib1_id is not None:
-        add_host_entry(group_all_uuid, ib1_id, "REALITY_443", domain, 443, "same", sni=f"cdn.{domain}", fp="firefox", sort_order=1)
+        r1 = f"REALITY Steal-OneSelf ({chosen_steal})"
+        add_host_entry(str(uuid.uuid4()), ib1_id, r1, chosen_steal, 443, "same", sni=chosen_steal, fp="firefox", sort_order=1)
     if ib2_id is not None:
         c_snis = os.environ.get("CLASSIC_CONFIG_DATA", "")
         c_def_sni = "tbank.ru"
         if "=" in c_snis:
             c_def_sni = c_snis.split("=", 1)[1].split(";")[0].split(",")[0].strip()
-        add_host_entry(group_all_uuid, ib2_id, "REALITY_Classic", domain, 443, "same", sni=c_def_sni, fp="firefox", sort_order=1)
-
+        r2 = f"REALITY Classic ({c_def_sni})"
+        add_host_entry(str(uuid.uuid4()), ib2_id, r2, domain, 443, "same", sni=c_def_sni, fp="firefox", sort_order=1)
     if ib3_id is not None:
-        alpn_str = json.dumps(["h2"])
-        add_host_entry(group_xhttp_uuid, ib3_id, "xHTTP_H2", domain, 443, "tls", sni=domain, path=xhttp_path, alpn=alpn_str, fp="firefox", sort_order=2)
+        r3 = f"VLESS xHTTP ({domain})"
+        add_host_entry(str(uuid.uuid4()), ib3_id, r3, domain, 443, "tls", sni=domain, path=xhttp_path, alpn=json.dumps(["h2"]), fp="firefox", sort_order=2)
 elif install_mode == "2":
-    cur.execute("DELETE FROM hosts WHERE inbound_id IN (SELECT id FROM inbounds WHERE protocol IN ('hysteria', 'amneziawg', 'wireguard'))")
-    if ib1_id is not None:
-        cur.execute("SELECT id FROM hosts WHERE inbound_id = ?", (ib1_id,))
-        if cur.fetchone():
-            cur.execute("UPDATE hosts SET sni = ? WHERE inbound_id = ?", (f"cdn.{domain}", ib1_id))
+    cur.execute("SELECT id, remark, settings, stream_settings, protocol FROM inbounds")
+    ib_rows = cur.fetchall()
+    for cur_ib_id, cur_ib_remark, ib_s_raw, ib_st_raw, ib_proto in ib_rows:
+        st_info = json.loads(ib_st_raw) if ib_st_raw else {}
+        rs_sni = ""
+        if "realitySettings" in st_info:
+            s_names = st_info["realitySettings"].get("serverNames", [])
+            if s_names: rs_sni = s_names[0]
+        cur.execute("SELECT id, sni FROM hosts WHERE inbound_id = ?", (cur_ib_id,))
+        existing_h = cur.fetchall()
+        if existing_h:
+            for h_row in existing_h:
+                target_sni = h_row[1] if (h_row[1] and h_row[1].strip()) else rs_sni
+                # Обновляем только технический group_id и sni, название хоста (remark) не трогаем
+                cur.execute("UPDATE hosts SET group_id = ?, sni = ? WHERE id = ?", (str(uuid.uuid4()), target_sni, h_row[0]))
         else:
-            group_all_uuid = str(uuid.uuid4())
-            add_host_entry(group_all_uuid, ib1_id, "REALITY_443", domain, 443, "same", sni=f"cdn.{domain}", fp="firefox", sort_order=1)
+            # Новый инбаунд регистрируется в hosts только как техническая точка входа (клиенты не привязываются)
+            sec_v = "tls" if (ib_proto == "vless" and "xhttp" in str(ib_st_raw)) else "same"
+            add_host_entry(str(uuid.uuid4()), cur_ib_id, cur_ib_remark, domain, 443, sec_v, sni=rs_sni or domain, fp="firefox")
+
     if ib3_id is not None:
         cur.execute("SELECT id FROM hosts WHERE inbound_id = ?", (ib3_id,))
-        if cur.fetchone():
-            cur.execute("UPDATE hosts SET path = ? WHERE inbound_id = ?", (xhttp_path, ib3_id))
+        h3_row = cur.fetchone()
+        if h3_row:
+            # Обновление путей xHTTP без изменения пользовательского имени
+            cur.execute("UPDATE hosts SET group_id = ?, address = ?, sni = ?, path = ?, alpn = ? WHERE id = ?",
+                        (str(uuid.uuid4()), domain, domain, xhttp_path, json.dumps(["h2"]), h3_row[0]))
         else:
-            group_xhttp_uuid = str(uuid.uuid4())
-            alpn_str = json.dumps(["h2"])
-            add_host_entry(group_xhttp_uuid, ib3_id, "xHTTP_H2", domain, 443, "tls", sni=domain, path=xhttp_path, alpn=alpn_str, fp="firefox", sort_order=2)
+            cur.execute("SELECT remark FROM inbounds WHERE id = ?", (ib3_id,))
+            r3_row = cur.fetchone()
+            r3 = r3_row[0] if r3_row else f"VLESS xHTTP ({domain})"
+            add_host_entry(str(uuid.uuid4()), ib3_id, r3, domain, 443, "tls", sni=domain, path=xhttp_path, alpn=json.dumps(["h2"]), fp="firefox", sort_order=2)
 
-conn.commit()
+    conn.commit()
+try:
+    cur.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+except Exception:
+    pass
 conn.close()
 
 with open("/tmp/vpn_unified_creds.txt", "w") as f:
@@ -3678,6 +4011,14 @@ with open("/tmp/vpn_unified_creds.txt", "w") as f:
     f.write(f"UNIFIED_UUID={test_uuid}\n")
     f.write(f"TEST_EMAIL={test_email}\n")
 EOF_PY_ENGINE
+
+if [ -f "$DB_PATH" ]; then
+    sqlite3 "$DB_PATH" "PRAGMA wal_checkpoint(TRUNCATE);" 2>/dev/null || true
+    chmod 755 "$(dirname "$DB_PATH")" 2>/dev/null || true
+    chmod 644 "$DB_PATH" 2>/dev/null || true
+    chmod 644 "${DB_PATH}-wal" 2>/dev/null || true
+    chmod 644 "${DB_PATH}-shm" 2>/dev/null || true
+fi
 
 systemctl restart x-ui
 sleep 2
@@ -3714,10 +4055,21 @@ if [ "${ENABLE_NATIVE_AWG:-0}" -eq 1 ]; then
     fi
 
     if ! command -v awg >/dev/null 2>&1 || ! dkms status 2>/dev/null | grep -q "amneziawg"; then
-        log "Сборка DKMS AmneziaWG из исходников для $OS_ID ($OS_CODENAME)..."
+        log "Синхронизация заголовков активного ядра и репозитория ОС..."
         wait_for_apt_lock
-        apt-get install -y "linux-headers-$(uname -r)" git dkms wireguard-tools libmnl-dev -q >/dev/null 2>&1 || \
-            apt-get install -y linux-headers-amd64 linux-headers-cloud-amd64 git dkms wireguard-tools libmnl-dev -q >/dev/null 2>&1 || true
+        KERNEL_META_HEADERS="linux-headers-amd64"
+        if [ "$OS_ID" = "ubuntu" ]; then
+            KERNEL_META_HEADERS="linux-headers-generic"
+        fi
+        if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]; then
+            KERNEL_META_HEADERS="linux-headers-arm64"
+            if [ "$OS_ID" = "ubuntu" ]; then
+                KERNEL_META_HEADERS="linux-headers-generic"
+            fi
+        fi
+        apt-get install -y build-essential git dkms wireguard-tools libmnl-dev make gcc -q >/dev/null 2>&1 || true
+        apt-get install -y "linux-headers-$(uname -r)" -q >/dev/null 2>&1 || true
+        apt-get install -y "$KERNEL_META_HEADERS" -q >/dev/null 2>&1 || true
         
         AWG_CLONE_DIR="/tmp/awg-kernel-src"
         AWG_BUILD_DIR="/usr/src/amneziawg-1.0.0"
@@ -3737,8 +4089,8 @@ MAKE[0]="'make' -C $kernel_source_dir M=$dkms_tree/$PACKAGE_NAME/$PACKAGE_VERSIO
 EOF_DKMS
             dkms remove amneziawg/1.0.0 --all 2>/dev/null || true
             dkms add -m amneziawg -v 1.0.0 2>/dev/null || true
-            dkms build -m amneziawg -v 1.0.0 2>/dev/null || true
-            dkms install -m amneziawg -v 1.0.0 2>/dev/null || true
+            dkms build -m amneziawg -v 1.0.0 -k "$(uname -r)" >/dev/null 2>&1 || dkms build -m amneziawg -v 1.0.0 >/dev/null 2>&1 || true
+            dkms install -m amneziawg -v 1.0.0 -k "$(uname -r)" >/dev/null 2>&1 || dkms install -m amneziawg -v 1.0.0 >/dev/null 2>&1 || true
             rm -rf "$AWG_CLONE_DIR"
         fi
 
@@ -3763,16 +4115,46 @@ EOF_DKMS
     mkdir -p /etc/amnezia/amneziawg
     chmod 700 /etc/amnezia /etc/amnezia/amneziawg
 
-    DEFAULT_IF=$(ip -4 route get 8.8.8.8 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' | head -n1 || echo "")
-    if [ -z "$DEFAULT_IF" ]; then
-        DEFAULT_IF=$(ip -4 route show default 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' | head -n1 || echo "")
-    fi
-    if [ -z "$DEFAULT_IF" ]; then
-        DEFAULT_IF="eth0"
-    fi
+    if [ -f /etc/amnezia/amneziawg/awg0.conf ]; then
+        ok "Обнаружена действующая конфигурация awg0 (/etc/amnezia/amneziawg/awg0.conf). Режим сохранения активен."
+        DETECTED_AWG_PORT=$(grep -E '^\s*ListenPort\s*=' /etc/amnezia/amneziawg/awg0.conf | head -n1 | awk -F= '{print $2}' | tr -d '[:space:]' || echo "")
+        if validate_port "$DETECTED_AWG_PORT"; then
+            NATIVE_AWG_PORT="$DETECTED_AWG_PORT"
+            ok "Рабочий порт сервера AmneziaWG awg0: :${NATIVE_AWG_PORT}/udp"
+        fi
 
-    if [ "$INSTALL_MODE" = "2" ] && [ -f /etc/amnezia/amneziawg/awg0.conf ] && [ -f /etc/amnezia/amneziawg/clients.json ]; then
-        ok "Режим Safe Migration: существующая конфигурация awg0 и клиентская база сохранены без перезаписи ключей."
+        CLIENTS_JSON="/etc/amnezia/amneziawg/clients.json"
+        if [ ! -f "$CLIENTS_JSON" ]; then
+            log "Синтез clients.json из действующих пиров awg0.conf..."
+            python3 - << 'EOF_RECON'
+import re, json, os
+conf_path = "/etc/amnezia/amneziawg/awg0.conf"
+clients_json_path = "/etc/amnezia/amneziawg/clients.json"
+clients = {}
+if os.path.exists(conf_path):
+    with open(conf_path, "r") as f:
+        content = f.read()
+    peers = re.findall(r'\[Peer\][\s\S]*?(?=\n\[Peer\]|\Z)', content)
+    for idx, p_block in enumerate(peers, 1):
+        m_pub = re.search(r'PublicKey\s*=\s*([^\s\n\r]+)', p_block)
+        m_ip = re.search(r'AllowedIPs\s*=\s*([^\s\n\r]+)', p_block)
+        m_name = re.search(r'# --- Client:\s*([^\n\r]+?)\s*---', p_block)
+        if m_pub:
+            pub = m_pub.group(1).strip()
+            ip = m_ip.group(1).strip() if m_ip else f"10.9.0.{idx+1}/32"
+            name = m_name.group(1).strip() if m_name else f"Client-{idx}"
+            clients[pub] = {
+                "name": name,
+                "private_key": "",
+                "public_key": pub,
+                "ip": ip
+            }
+    with open(clients_json_path, "w") as f:
+        json.dump(clients, f, indent=2)
+    os.chmod(clients_json_path, 0o600)
+EOF_RECON
+        fi
+        chmod 600 /etc/amnezia/amneziawg/awg0.conf
     else
         log "Генерация новых ключей и конфигурации сервера AmneziaWG awg0..."
         AWG_S_PRIV=$(awg genkey 2>/dev/null || openssl rand -base64 32)
@@ -3872,29 +4254,28 @@ log "Развёртывание управляющего микросервис�
 cat << 'EOF_CORE_PY' > /usr/local/bin/datasphere-core.py
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import http.server, socketserver, json, os, subprocess, hmac, secrets, re, time, sqlite3, urllib.parse, base64, fcntl
+import http.server, socketserver, json, os, subprocess, hmac, secrets, re, time, sqlite3, urllib.parse, base64, fcntl, threading
 try:
     import bcrypt
 except ImportError:
     bcrypt = None
 
-DB_PATH = "/etc/x-ui/x-ui.db"
-for alt in ["/etc/x-ui/x-ui.db", "/usr/local/x-ui/bin/x-ui.db", "/etc/x-ui/db/x-ui.db"]:
-    if os.path.exists(alt):
-        DB_PATH = alt
-        break
-
+DB_PATHS = ["/etc/x-ui/x-ui.db", "/usr/local/x-ui/bin/x-ui.db", "/etc/x-ui/db/x-ui.db"]
 CLIENTS_FILE = "/etc/amnezia/amneziawg/clients.json"
 CONF_PATH = "/etc/amnezia/amneziawg/awg0.conf"
 
 ENABLE_AGH = os.environ.get("ENABLE_AGH", "0") == "1"
 GEO_PROFILE = os.environ.get("GEO_PROFILE", "2")
 PRIMARY_DOMAIN = os.environ.get("PRIMARY_DOMAIN", "")
+AGH_DOMAIN = os.environ.get("AGH_DOMAIN", "")
 NATIVE_AWG_PORT = os.environ.get("NATIVE_AWG_PORT", "8443")
 
-def execute_cmd(cmd):
+SESSION_LOCK = threading.Lock()
+ACTIVE_SESSIONS = {}
+
+def safe_cmd_output(args):
     try:
-        return subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).decode("utf-8")
+        return subprocess.check_output(args, stderr=subprocess.DEVNULL).decode("utf-8")
     except Exception:
         return ""
 
@@ -3925,31 +4306,6 @@ def gen_wireguard_keypair():
     pub = x25519(k, 9).to_bytes(32, "little")
     return base64.b64encode(raw).decode(), base64.b64encode(pub).decode()
 
-def atomic_write_conf(text):
-    try:
-        tmp_conf = f"{CONF_PATH}.tmp.{os.getpid()}"
-        with open(tmp_conf, "w") as f:
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-            f.write(text)
-            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-        os.chmod(tmp_conf, 0o600)
-        os.replace(tmp_conf, CONF_PATH)
-    except Exception:
-        pass
-
-def save_clients(clients):
-    try:
-        os.makedirs(os.path.dirname(CLIENTS_FILE), exist_ok=True)
-        tmp_file = f"{CLIENTS_FILE}.tmp.{os.getpid()}"
-        with open(tmp_file, "w") as f:
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-            json.dump(clients, f, indent=2)
-            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-        os.chmod(tmp_file, 0o600)
-        os.replace(tmp_file, CLIENTS_FILE)
-    except Exception:
-        pass
-
 def load_clients():
     clients = {}
     if os.path.exists(CLIENTS_FILE):
@@ -3961,29 +4317,28 @@ def load_clients():
         except Exception:
             pass
 
-    root_conf = "/root/amneziawg-client.conf"
-    if os.path.exists(root_conf):
-        try:
-            with open(root_conf, "r") as f:
-                c_text = f.read()
-            m_priv = re.search(r"^PrivateKey\s*=\s*([^\s\n\r]+)", c_text, re.M)
-            m_ip = re.search(r"^Address\s*=\s*([^\s\n\r]+)", c_text, re.M)
-            if m_priv and len(m_priv.group(1).strip()) > 30:
-                priv = m_priv.group(1).strip()
-                ip = m_ip.group(1).strip() if m_ip else "10.9.0.2/32"
-                pub = execute_cmd(f"echo '{priv}' | awg pubkey").strip()
-                if not pub:
+    if not clients:
+        root_conf = "/root/amneziawg-client.conf"
+        if os.path.exists(root_conf):
+            try:
+                with open(root_conf, "r") as f:
+                    c_text = f.read()
+                m_priv = re.search(r"^PrivateKey\s*=\s*([^\s\n\r]+)", c_text, re.M)
+                m_ip = re.search(r"^Address\s*=\s*([^\s\n\r]+)", c_text, re.M)
+                if m_priv and len(m_priv.group(1).strip()) > 30:
+                    priv = m_priv.group(1).strip()
+                    ip = m_ip.group(1).strip() if m_ip else "10.9.0.2/32"
                     raw = base64.b64decode(priv)
                     pub = base64.b64encode(x25519(clamp(raw), 9).to_bytes(32, "little")).decode()
-                clients[pub] = {
-                    "name": "Test-Client",
-                    "private_key": priv,
-                    "public_key": pub,
-                    "ip": ip
-                }
-                save_clients(clients)
-        except Exception:
-            pass
+                    clients[pub] = {
+                        "name": "Test-Client",
+                        "private_key": priv,
+                        "public_key": pub,
+                        "ip": ip
+                    }
+                    save_clients(clients)
+            except Exception:
+                pass
 
     if not clients:
         priv, pub = gen_wireguard_keypair()
@@ -4001,35 +4356,78 @@ def load_clients():
                 text = f.read()
             text = re.sub(r'\[Peer\][\s\S]*', '', text).strip()
             text += f"\n\n# --- Client: Test-Client ---\n[Peer]\nPublicKey = {pub}\nAllowedIPs = {ip}\n"
-            atomic_write_conf(text)
-            execute_cmd(f"awg set awg0 peer '{pub}' allowed-ips '{ip}'")
+            with open(CONF_PATH, "w") as f:
+                f.write(text)
+            subprocess.run(["awg", "set", "awg0", "peer", pub, "allowed-ips", ip], capture_output=True)
     return clients
 
-def get_db_creds():
+def save_clients(clients):
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=5.0)
-        cur = conn.cursor()
-        cur.execute("SELECT username, password FROM users LIMIT 1")
-        row = cur.fetchone()
-        conn.close()
-        if row:
-            return row[0].strip(), row[1].strip()
+        os.makedirs(os.path.dirname(CLIENTS_FILE), exist_ok=True)
+        with open(CLIENTS_FILE, "w") as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            json.dump(clients, f, indent=2)
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        os.chmod(CLIENTS_FILE, 0o600)
     except Exception:
         pass
-    return None, None
+
+def verify_credentials(user, pwd):
+    for db_path in DB_PATHS:
+        if not os.path.exists(db_path):
+            continue
+        try:
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro&immutable=1", uri=True, timeout=5.0)
+            cur = conn.cursor()
+            cur.execute("SELECT password FROM users WHERE username = ? LIMIT 1", (user,))
+            row = cur.fetchone()
+            if not row:
+                cur.execute("SELECT password FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1", (user,))
+                row = cur.fetchone()
+            conn.close()
+
+            if row:
+                db_hash = row[0].strip()
+                if db_hash.startswith("$2") and bcrypt:
+                    try:
+                        if bcrypt.checkpw(pwd.encode('utf-8'), db_hash.encode('utf-8')):
+                            return True
+                    except Exception:
+                        pass
+                elif hmac.compare_digest(pwd, db_hash):
+                    return True
+        except Exception:
+            pass
+
+    cred_file = "/root/vpn_credentials.txt"
+    if os.path.exists(cred_file):
+        try:
+            with open(cred_file, "r", encoding="utf-8") as f:
+                content = f.read()
+            m_u = re.search(r"Логин администратора:\s*([^\n\r]+)", content)
+            m_p = re.search(r"Пароль администратора:\s*([^\n\r]+)", content)
+            if m_u and m_p:
+                if hmac.compare_digest(user, m_u.group(1).strip()) and hmac.compare_digest(pwd, m_p.group(1).strip()):
+                    return True
+        except Exception:
+            pass
+
+    return False
 
 def get_panel_path():
-    try:
-        conn = sqlite3.connect(DB_PATH, timeout=5.0)
-        cur = conn.cursor()
-        cur.execute("SELECT value FROM settings WHERE key='webBasePath'")
-        row = cur.fetchone()
-        conn.close()
-        if row and row[0]:
-            p = row[0].strip().strip("/")
-            return f"/{p}/"
-    except Exception:
-        pass
+    for db_path in DB_PATHS:
+        if os.path.exists(db_path):
+            try:
+                conn = sqlite3.connect(f"file:{db_path}?mode=ro&immutable=1", uri=True, timeout=5.0)
+                cur = conn.cursor()
+                cur.execute("SELECT value FROM settings WHERE key='webBasePath'")
+                row = cur.fetchone()
+                conn.close()
+                if row and row[0]:
+                    p = row[0].strip().strip("/")
+                    return f"/{p}/"
+            except Exception:
+                pass
     return "/my-3x-panel/"
 
 def build_client_conf(pub_key, host):
@@ -4039,13 +4437,13 @@ def build_client_conf(pub_key, host):
             c_text = f.read()
         for k in ["MTU", "Jc", "Jmin", "Jmax", "S1", "S2", "S3", "S4", "H1", "H2", "H3", "H4", "ListenPort", "PrivateKey"]:
             m = re.search(rf"^{k}\s*=\s*([^\s\n\r]+)", c_text, re.M)
-            if m: srv[k] = m.group(1).strip()
+            if m:
+                srv[k] = m.group(1).strip()
     
     clients = load_clients()
-    c_info = clients.get(pub_key, {})
-    
-    if not c_info and clients:
-        c_info = next(iter(clients.values()))
+    c_info = clients.get(pub_key)
+    if not c_info:
+        return None
     
     c_priv = c_info.get("private_key", "")
     c_ip = c_info.get("ip", "10.9.0.2/32")
@@ -4053,9 +4451,13 @@ def build_client_conf(pub_key, host):
     s_priv = srv.get("PrivateKey", "")
     s_pub = ""
     if s_priv:
-        s_pub = execute_cmd(f"echo '{s_priv}' | awg pubkey").strip()
+        try:
+            raw_s = base64.b64decode(s_priv)
+            s_pub = base64.b64encode(x25519(clamp(raw_s), 9).to_bytes(32, "little")).decode()
+        except Exception:
+            pass
     if not s_pub:
-        s_pub = execute_cmd("awg show awg0 public-key").strip()
+        s_pub = safe_cmd_output(["awg", "show", "awg0", "public-key"]).strip()
 
     dns_ip = "77.88.8.8"
     if ENABLE_AGH:
@@ -4063,7 +4465,7 @@ def build_client_conf(pub_key, host):
     elif GEO_PROFILE != "1":
         dns_ip = "1.1.1.1"
 
-    h = host.split(':')[0] if host else PRIMARY_DOMAIN
+    dest_endpoint = host.split(':')[0] if host else PRIMARY_DOMAIN
     port_val = srv.get('ListenPort', NATIVE_AWG_PORT)
     return f"""[Interface]
 Address = {c_ip}
@@ -4084,18 +4486,17 @@ H4 = {srv.get('H4', '1657628296')}
 
 [Peer]
 PublicKey = {s_pub}
-Endpoint = {h}:{port_val}
-AllowedIPs = 0.0.0.0/0
+Endpoint = {dest_endpoint}:{port_val}
+AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 25
 """
 
-ACTIVE_SESSIONS = {}
-
 def clean_expired_sessions():
     now = time.time()
-    expired = [t for t, exp in ACTIVE_SESSIONS.items() if exp < now]
-    for t in expired:
-        ACTIVE_SESSIONS.pop(t, None)
+    with SESSION_LOCK:
+        expired = [t for t, exp in list(ACTIVE_SESSIONS.items()) if exp < now]
+        for t in expired:
+            ACTIVE_SESSIONS.pop(t, None)
 
 class CoreHandler(http.server.BaseHTTPRequestHandler):
     def _send_json(self, data, code=200):
@@ -4111,8 +4512,9 @@ class CoreHandler(http.server.BaseHTTPRequestHandler):
         auth = self.headers.get("Authorization", "")
         if auth.startswith("Bearer "):
             token = auth[7:].strip()
-            exp = ACTIVE_SESSIONS.get(token, 0)
-            return exp > time.time()
+            with SESSION_LOCK:
+                exp = ACTIVE_SESSIONS.get(token, 0)
+                return exp > time.time()
         return False
 
     def do_POST(self):
@@ -4127,36 +4529,23 @@ class CoreHandler(http.server.BaseHTTPRequestHandler):
         if self.path == "/api/v1/datasphere/auth":
             user = data.get("principal", "").strip()
             pwd = data.get("secret", "").strip()
-            
-            db_user, db_hash = get_db_creds()
-            u_ok = False
-            p_ok = False
 
-            if db_user and db_hash:
-                u_ok = hmac.compare_digest(user, db_user)
-                if db_hash.startswith("$2") and bcrypt:
-                    try:
-                        p_ok = bcrypt.checkpw(pwd.encode('utf-8'), db_hash.encode('utf-8'))
-                    except Exception:
-                        p_ok = False
-                else:
-                    import hashlib
-                    p_sha = hashlib.sha256(pwd.encode('utf-8')).hexdigest()
-                    p_ok = hmac.compare_digest(pwd, db_hash) or hmac.compare_digest(p_sha, db_hash)
-
-            if u_ok and p_ok:
+            if verify_credentials(user, pwd):
                 clean_expired_sessions()
                 token = secrets.token_hex(24)
-                ACTIVE_SESSIONS[token] = time.time() + 3600
+                with SESSION_LOCK:
+                    ACTIVE_SESSIONS[token] = time.time() + 3600
                 panel_url = get_panel_path()
+                agh_target = AGH_DOMAIN if AGH_DOMAIN else f"dns.{self.headers.get('Host', '')}"
                 self._send_json({
                     "status": "ok",
                     "token": token,
                     "services": {
                         "panel_url": panel_url,
                         "awg_enabled": os.path.exists(CONF_PATH),
+                        "awg_port": NATIVE_AWG_PORT,
                         "agh_enabled": os.path.exists("/opt/AdGuardHome/AdGuardHome.yaml"),
-                        "agh_url": f"https://dns.{self.headers.get('Host', '')}/"
+                        "agh_url": f"https://{agh_target}/"
                     }
                 })
             else:
@@ -4179,25 +4568,25 @@ class CoreHandler(http.server.BaseHTTPRequestHandler):
             priv, pub = gen_wireguard_keypair()
 
             lines = []
-            current_conf = ""
             if os.path.exists(CONF_PATH):
                 with open(CONF_PATH, "r") as f:
-                    current_conf = f.read()
-                    lines = current_conf.splitlines()
+                    lines = f.readlines()
 
             used_octets = [1]
             for l in lines:
                 m = re.search(r'AllowedIPs\s*=\s*10\.9\.0\.(\d+)', l)
-                if m: used_octets.append(int(m.group(1)))
+                if m:
+                    used_octets.append(int(m.group(1)))
             next_ip = 2
             while next_ip in used_octets and next_ip < 254:
                 next_ip += 1
 
             client_ip = f"10.9.0.{next_ip}/32"
             new_peer = f"\n# --- Client: {name} ---\n[Peer]\nPublicKey = {pub}\nAllowedIPs = {client_ip}\n"
-            atomic_write_conf(current_conf.strip() + "\n" + new_peer)
+            with open(CONF_PATH, "a") as f:
+                f.write(new_peer)
 
-            execute_cmd(f"awg set awg0 peer '{pub}' allowed-ips '{client_ip}'")
+            subprocess.run(["awg", "set", "awg0", "peer", pub, "allowed-ips", client_ip], capture_output=True)
             
             clients = load_clients()
             clients[pub] = {
@@ -4213,14 +4602,15 @@ class CoreHandler(http.server.BaseHTTPRequestHandler):
 
         if self.path == "/api/v1/datasphere/awg/peer/remove":
             pub = urllib.parse.unquote(data.get("public_key", "")).strip()
-            if pub:
-                execute_cmd(f"awg set awg0 peer '{pub}' remove")
+            if pub and re.match(r'^[A-Za-z0-9+/=]{40,50}$', pub):
+                subprocess.run(["awg", "set", "awg0", "peer", pub, "remove"], capture_output=True)
                 if os.path.exists(CONF_PATH):
                     with open(CONF_PATH, "r") as f:
                         text = f.read()
                     pattern = rf"(# --- Client: .*?---\n)?\[Peer\]\nPublicKey\s*=\s*{re.escape(pub)}[\s\S]*?(?=\n\[Peer\]|\n# ---|$)"
                     text = re.sub(pattern, "", text)
-                    atomic_write_conf(text.strip() + "\n")
+                    with open(CONF_PATH, "w") as f:
+                        f.write(text.strip() + "\n")
                 
                 clients = load_clients()
                 if pub in clients:
@@ -4246,19 +4636,33 @@ class CoreHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if self.path.startswith("/api/v1/datasphere/awg/peer/qr"):
+            if not self._auth_valid():
+                self._send_json({"status": "error", "error": "Unauthorized"}, code=401)
+                return
             pub_req = re.search(r'key=([^&]+)', self.path)
             raw_key = pub_req.group(1).strip() if pub_req else ""
             pub_key = urllib.parse.unquote(raw_key).strip()
             
             conf_str = build_client_conf(pub_key, self.headers.get('Host', ''))
+            if not conf_str:
+                self._send_json({"status": "error", "error": "Peer Not Found"}, code=404)
+                return
             
-            p = subprocess.Popen(["qrencode", "-t", "SVG", "-m", "2", "--foreground=FFFFFF", "--background=1E1F20"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            svg_out, _ = p.communicate(input=conf_str.encode("utf-8"))
+            p = subprocess.Popen(["qrencode", "-t", "PNG", "-s", "8", "-m", "2", "-o", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            img_out, _ = p.communicate(input=conf_str.encode("utf-8"))
+            if not img_out:
+                p_svg = subprocess.Popen(["qrencode", "-t", "SVG", "-m", "2", "-o", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                img_out, _ = p_svg.communicate(input=conf_str.encode("utf-8"))
+                content_type = "image/svg+xml"
+            else:
+                content_type = "image/png"
             
             self.send_response(200)
-            self.send_header("Content-Type", "image/svg+xml")
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(img_out)))
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, private")
             self.end_headers()
-            self.wfile.write(svg_out)
+            self.wfile.write(img_out)
             return
 
         if self.path.startswith("/api/v1/datasphere/awg/peer/conf"):
@@ -4270,10 +4674,14 @@ class CoreHandler(http.server.BaseHTTPRequestHandler):
             pub_key = urllib.parse.unquote(raw_key).strip()
             
             body_conf = build_client_conf(pub_key, self.headers.get('Host', ''))
+            if not body_conf:
+                self._send_json({"status": "error", "error": "Peer Not Found"}, code=404)
+                return
             
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.send_header("Content-Disposition", f'attachment; filename="awg0-{pub_key[:6]}.conf"')
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, private")
             self.end_headers()
             self.wfile.write(body_conf.encode("utf-8"))
             return
@@ -4283,14 +4691,15 @@ class CoreHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json({"status": "error", "error": "Unauthorized"}, code=401)
                 return
 
-            dump = execute_cmd("awg show awg0 dump").strip()
+            dump = safe_cmd_output(["awg", "show", "awg0", "dump"]).strip()
             name_map = {}
             if os.path.exists(CONF_PATH):
                 with open(CONF_PATH, "r") as f:
                     curr_name = ""
                     for l in f:
-                        m_n = re.search(r'# --- Client:\s*([^\s-]+)', l)
-                        if m_n: curr_name = m_n.group(1)
+                        m_n = re.search(r'# --- Client:\s*([^\n\r]+?)\s*---', l)
+                        if m_n:
+                            curr_name = m_n.group(1).strip()
                         m_k = re.search(r'PublicKey\s*=\s*([^\s]+)', l)
                         if m_k and curr_name:
                             name_map[m_k.group(1)] = curr_name
@@ -4345,11 +4754,16 @@ User=root
 Environment="ENABLE_AGH=${ENABLE_AGH:-0}"
 Environment="GEO_PROFILE=$GEO_PROFILE"
 Environment="PRIMARY_DOMAIN=$PRIMARY_DOMAIN"
+Environment="AGH_DOMAIN=${AGH_DOMAIN:-}"
 Environment="NATIVE_AWG_PORT=$NATIVE_AWG_PORT"
 ExecStart=/usr/bin/python3 /usr/local/bin/datasphere-core.py
 Restart=always
 RestartSec=3
-LimitNOFILE=524288
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=false
+ReadWritePaths=/etc/amnezia/amneziawg /etc/x-ui /root /tmp
+LimitNOFILE=1048576
 LimitNPROC=512
 
 [Install]
@@ -4362,21 +4776,14 @@ systemctl restart datasphere-core || true
 ok "Служба DataSphere Core SSO Gateway запущена на 127.0.0.1:20443."
 
 # =============================================================
-#  ФАЗА 6: ФИНАЛЬНЫЙ ЗАМОК (L3 FORWARD, NAT, MSS CLAMPING, UFW)
+#  ФАЗА 6: СЕТЕВОЙ ШЛЮЗ NAT, TCP MSS CLAMPING И ИЗОЛЯЦИЯ UFW
 # =============================================================
 echo
 echo -e "${CYAN}=====================================================================${NC}"
 echo -e "${GREEN}  ФАЗА 6: Сетевой шлюз NAT, TCP MSS Clamping и изоляция UFW          ${NC}"
 echo -e "${CYAN}=====================================================================${NC}"
 
-DEFAULT_IF=$(ip -4 route get 8.8.8.8 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' | head -n1 || echo "")
-if [ -z "$DEFAULT_IF" ]; then
-    DEFAULT_IF=$(ip -4 route show default 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' | head -n1 || echo "")
-fi
-if [ -z "$DEFAULT_IF" ]; then
-    DEFAULT_IF="eth0"
-fi
-ok "Сетевой интерфейс шлюза: ${GREEN}${DEFAULT_IF}${NC}"
+ok "Сетевой интерфейс шлюза (Universal WAN Engine): ${GREEN}${DEFAULT_IF}${NC}"
 
 if [ -f /etc/default/ufw ]; then
     sed -i 's/^DEFAULT_FORWARD_POLICY=.*/DEFAULT_FORWARD_POLICY="ACCEPT"/' /etc/default/ufw
@@ -4408,7 +4815,9 @@ fi
 
 if [ "${ENABLE_NATIVE_AWG:-0}" -eq 1 ]; then
     ufw allow "${NATIVE_AWG_PORT}/udp" comment 'AmneziaWG Native awg0 Base' >/dev/null 2>&1 || true
-    ufw allow 35001:49999/udp comment 'AmneziaWG Native Speed Pool' >/dev/null 2>&1 || true
+    if [ "${ENABLE_AWG_HOP:-0}" -eq 1 ]; then
+        ufw allow 35001:49999/udp comment 'AmneziaWG Native Speed Pool' >/dev/null 2>&1 || true
+    fi
 fi
 
 if [ "${ENABLE_AWG_V3:-0}" -eq 1 ]; then
@@ -4423,7 +4832,7 @@ if [ "${ENABLE_WG_NATIVE:-0}" -eq 1 ]; then
     ufw allow "${WG_NATIVE_PORT}/udp" comment '3X-UI WireGuard Native' >/dev/null 2>&1 || true
 fi
 
-export ENABLE_HY2_HOP HY2_PORT ENABLE_NATIVE_AWG NATIVE_AWG_PORT ENABLE_AWG_V3 ENABLE_AWG_V2 ENABLE_WG_NATIVE DEFAULT_IF
+export ENABLE_HY2_HOP HY2_PORT ENABLE_NATIVE_AWG NATIVE_AWG_PORT ENABLE_AWG_HOP ENABLE_AWG_V3 ENABLE_AWG_V2 ENABLE_WG_NATIVE DEFAULT_IF
 python3 - << 'EOF_UFW_PYTHON'
 # -*- coding: utf-8 -*-
 import os, sys, re
@@ -4438,6 +4847,7 @@ with open(rules_file, "r") as f:
 content = re.sub(r'# START HARDENED NAT[\s\S]*?# END HARDENED NAT\n?', '', content)
 content = re.sub(r'# START HARDENED MANGLE[\s\S]*?# END HARDENED MANGLE\n?', '', content)
 content = re.sub(r'# START HARDENED FORWARD[\s\S]*?# END HARDENED FORWARD\n?', '', content)
+content = re.sub(r'# START HARDENED DNS-INPUT[\s\S]*?# END HARDENED DNS-INPUT\n?', '', content)
 content = content.strip() + "\n"
 
 enable_hop = os.environ.get("ENABLE_HY2_HOP") == "1"
@@ -4445,6 +4855,7 @@ hy2_p = os.environ.get("HY2_PORT", "443")
 default_if = os.environ.get("DEFAULT_IF", "eth0")
 awg_native = os.environ.get("ENABLE_NATIVE_AWG") == "1"
 nawg_p = os.environ.get("NATIVE_AWG_PORT", "8443")
+awg_hop = os.environ.get("ENABLE_AWG_HOP") == "1"
 awg3 = os.environ.get("ENABLE_AWG_V3") == "1"
 awg2 = os.environ.get("ENABLE_AWG_V2") == "1"
 wg_nat = os.environ.get("ENABLE_WG_NATIVE") == "1"
@@ -4453,7 +4864,8 @@ nat_rules = ["*nat", ":PREROUTING ACCEPT [0:0]", ":POSTROUTING ACCEPT [0:0]", ":
 if enable_hop:
     nat_rules.append(f"-A PREROUTING -p udp --dport 20000:35000 -j REDIRECT --to-ports {hy2_p}")
 if awg_native:
-    nat_rules.append(f"-A PREROUTING -p udp --dport 35001:49999 -j REDIRECT --to-ports {nawg_p}")
+    if awg_hop:
+        nat_rules.append(f"-A PREROUTING -p udp --dport 35001:49999 -j REDIRECT --to-ports {nawg_p}")
     nat_rules.append(f"-A POSTROUTING -s 10.9.0.0/24 -o {default_if} -j MASQUERADE")
 if awg3:
     nat_rules.append(f"-A POSTROUTING -s 10.8.1.0/24 -o {default_if} -j MASQUERADE")
@@ -4464,6 +4876,14 @@ if wg_nat:
 nat_rules.append("COMMIT\n")
 
 nat_part = "# START HARDENED NAT\n" + "\n".join(nat_rules) + "\n# END HARDENED NAT\n\n"
+
+dns_input = [
+    "# START HARDENED DNS-INPUT",
+    "-A ufw-before-input -i awg0 -p udp --dport 53 -j ACCEPT",
+    "-A ufw-before-input -i awg0 -p tcp --dport 53 -j ACCEPT",
+    "# END HARDENED DNS-INPUT\n"
+]
+dns_input_block = "\n".join(dns_input)
 
 forward_rules = ["# START HARDENED FORWARD"]
 if awg_native:
@@ -4481,6 +4901,12 @@ if wg_nat:
 forward_rules.append("# END HARDENED FORWARD\n")
 forward_block = "\n".join(forward_rules)
 
+if "-A ufw-before-input -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT" in content:
+    content = content.replace(
+        "-A ufw-before-input -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT",
+        "-A ufw-before-input -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT\n" + dns_input_block
+    )
+
 if "-A ufw-before-forward -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT" in content:
     content = content.replace(
         "-A ufw-before-forward -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT",
@@ -4489,7 +4915,7 @@ if "-A ufw-before-forward -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT" 
 else:
     content = content.replace("*filter", "*filter\n" + forward_block)
 
-mangle_part = """# START HARDENED MANGLE
+mangle_part = f"""# START HARDENED MANGLE
 *mangle
 :PREROUTING ACCEPT [0:0]
 :INPUT ACCEPT [0:0]
@@ -4515,13 +4941,17 @@ with open(rules_file, "w") as f:
     f.write(final_body)
 EOF_UFW_PYTHON
 
-DENIED_PORTS=(10443 55443 50443 9443 3000 20443)
+DENIED_PORTS=("$PANEL_PORT" "$SUB_PORT" "$XHTTP_STREAM_PORT" 9443 3000 20443)
 for p in "${ALL_REALITY_PORTS[@]:-}"; do
-    DENIED_PORTS+=("$p")
+    if [ -n "$p" ]; then
+        DENIED_PORTS+=("$p")
+    fi
 done
 
 for dp in "${DENIED_PORTS[@]}"; do
-    ufw deny "${dp}/tcp" >/dev/null 2>&1 || true
+    if [ -n "$dp" ]; then
+        ufw deny "${dp}/tcp" >/dev/null 2>&1 || true
+    fi
 done
 
 if [ "${BLOCK_PING:-0}" -eq 1 ] && [ -f /etc/ufw/before.rules ]; then
@@ -4530,7 +4960,7 @@ fi
 
 ufw --force enable >/dev/null 2>&1 || true
 ufw reload >/dev/null 2>&1 || true
-ok "Фаервол UFW настроен. Маршрутизация пулов и MSS Clamping (1320/1380) активны."
+ok "Фаервол UFW настроен на адаптере $DEFAULT_IF. Маршрутизация пулов и MSS Clamping (1320/1380) активны."
 
 # =============================================================
 #  ФИНАЛ: СОХРАНЕНИЕ УЧЕТНЫХ ДАННЫХ И ДАШБОРД
@@ -4543,7 +4973,7 @@ fi
 CRED_FILE="/root/vpn_credentials.txt"
 cat << EOF > "$CRED_FILE"
 =====================================================================
-  УЧЕТНЫЕ ДАННЫЕ ВАШЕГО СЕРВЕРА (Single-IP Ultra Enhanced v3.5)
+  УЧЕТНЫЕ ДАННЫЕ ВАШЕГО СЕРВЕРА (Single-IP Ultra Enhanced v3.6)
   ОС: $(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
   Ядро Xray-core: ${DETECTED_XRAY_VER} (Pinned)
   Режим:          $([ "$INSTALL_MODE" = "2" ] && echo "Safe Migration" || echo "Clean Setup")
@@ -4568,7 +4998,7 @@ $([ "${ENABLE_NATIVE_AWG:-0}" -eq 1 ] && cat << EOF_NAWG_CRED
 [ НА ТЕХНОЛОГИЯХ ЯДРА: НА РАБОЧЕМ ЖЕЛЕЗЕ AMNEZIAWG ]
 Интерфейс:             awg0 (Модуль ядра Linux DKMS)
 Базовый порт / Хост:   ${PRIMARY_DOMAIN}:${NATIVE_AWG_PORT:-8443}
-Скоростной пул UDP:    ${PRIMARY_DOMAIN}:35001-49999 (Любой порт пула -> :${NATIVE_AWG_PORT})
+$([ "${ENABLE_AWG_HOP:-0}" -eq 1 ] && echo "Скоростной пул UDP:    ${PRIMARY_DOMAIN}:35001-49999 (Любой порт пула -> :${NATIVE_AWG_PORT})" || echo "Режим портов:          Одиночный порт :${NATIVE_AWG_PORT}")
 Первый клиент:         Test-Client
 Конфиг файл (.conf):   /root/amneziawg-client.conf
 Стандарт скорости:     MTU 1360 | MSS 1320 | Jc 4 | Jmin 40 | Jmax 70 | S1 72 | S2 56 | S3 32 | S4 16
@@ -4593,7 +5023,7 @@ $([ "$INSTALL_MODE" = "1" ] && cat << EOF_SUB_CRED
 EOF_SUB_CRED
 )
 $([ "$INSTALL_MODE" = "2" ] && echo "[ ПОДПИСКИ КЛИЕНТОВ ]
-Все существующие подписки, UUID и ключи сохранены.")
+Все существующие подписки, UUID и ключи сохранены без перезаписи.")
 
 $([ "${ENABLE_HY2:-0}" -eq 1 ] && echo "[ HYSTERIA 2 ]
 Подключение:           ${HY2_REPORT_LINE}
@@ -4613,6 +5043,7 @@ MTU / Clamping:        MTU 1420 | MSS 1380
 ")
 [ СЕТЕВЫЕ ПАРАМЕТРЫ ]
 Основной хост:         ${PRIMARY_DOMAIN} (IP: ${WAN_IP:-auto})
+Сетевой адаптер (WAN): ${DEFAULT_IF}
 SSH порт:              ${TARGET_SSH_PORT}
 
 [ ВАЖНОЕ ДЕЙСТВИЕ ДЛЯ ПЕРВОГО ВХОДА В ПАНЕЛЬ ]
@@ -4624,7 +5055,7 @@ chmod 600 "$CRED_FILE"
 
 echo
 echo -e "${GREEN}=====================================================================${NC}"
-echo -e "${GREEN}  СИСТЕМА УСПЕШНО РАЗВЕРНУТА В РЕЖИМЕ SINGLE-IP (v3.5 ULTRA)!         ${NC}"
+echo -e "${GREEN}  СИСТЕМА УСПЕШНО РАЗВЕРНУТА В РЕЖИМЕ SINGLE-IP (v3.6 ULTRA)!         ${NC}"
 echo -e "${GREEN}=====================================================================${NC}"
 echo -e "  Сайт-маскировка DataSphere:  ${CYAN}https://${PRIMARY_DOMAIN}/${NC}"
 echo -e "  Скрытый SSO Hub:             ${WHITE}Кнопка «Консоль» в шапке сайта${NC}"
@@ -4633,8 +5064,13 @@ echo -e "  Логин: ${WHITE}${ADMIN_USER}${NC} | Пароль: ${YELLOW}${BOL
 fi
 echo
 echo -e "  Прямой URL панели 3X-UI:     ${CYAN}https://${PRIMARY_DOMAIN}${PANEL_PATH}${NC}"
+echo -e "  Сетевой адаптер (WAN):       ${GREEN}${DEFAULT_IF} (Universal Dynamic WAN Engine)${NC}"
 if [ "${ENABLE_NATIVE_AWG:-0}" -eq 1 ]; then
+    if [ "${ENABLE_AWG_HOP:-0}" -eq 1 ]; then
 echo -e "  Нативный AmneziaWG (Kernel): ${GREEN}awg0 (:8443/udp, пул 35001-49999, MTU 1360 / MSS 1320)${NC}"
+else
+echo -e "  Нативный AmneziaWG (Kernel): ${GREEN}awg0 (:8443/udp одиночный порт, MTU 1360 / MSS 1320)${NC}"
+fi
 echo -e "  Первый клиент:               ${GREEN}Test-Client (/root/amneziawg-client.conf)${NC}"
 fi
 if [ "${ENABLE_AGH:-0}" -eq 1 ]; then
@@ -4657,8 +5093,15 @@ echo -e "  ${WHITE}Zero-SNI Shield:${NC}             ${GREEN}ssl_reject_handshak
 echo -e "  ${WHITE}Порт 80:${NC}                     ${GREEN}Только ACME, сканеры сбрасываются (444)${NC}"
 echo -e "  ${WHITE}Anti-Loop Fallback 9443:${NC}     ${GREEN}Proxy_Protocol v1 + Живой Nginx (Декой DataSphere)${NC}"
 echo -e "  ${WHITE}L4 Stream Ingress:${NC}           ${GREEN}Строго порт 443/tcp (Порт 8443 освобожден под UDP)${NC}"
+echo -e "  ${WHITE}VLESS xHTTP Inbound:${NC}         ${GREEN}Строго привязан к ${PRIMARY_DOMAIN} (H2 Stream-One)${NC}"
 echo -e "  ${WHITE}Hysteria 2 Hopping Пул:${NC}      ${GREEN}Порты 20000:35000/udp -> :443/udp${NC}"
+if [ "${ENABLE_NATIVE_AWG:-0}" -eq 1 ]; then
+    if [ "${ENABLE_AWG_HOP:-0}" -eq 1 ]; then
 echo -e "  ${WHITE}AmneziaWG Native Пул:${NC}        ${GREEN}Порты 35001:49999/udp -> :8443/udp${NC}"
+else
+echo -e "  ${WHITE}AmneziaWG Native Режим:${NC}      ${GREEN}Одиночный порт :8443/udp${NC}"
+fi
+fi
 echo -e "  ${WHITE}AWG3 Golden Matrix:${NC}          ${GREEN}S1=72 | S2=56 | S3=32 | S4=16 | MTU 1360 | MSS 1320${NC}"
 echo -e "  ${WHITE}3X-UI Выделенный UDP Стек:${NC}   ${GREEN}AWG v3.2 (:10443) | AWG v2.0 (:10444) | WG (:10445)${NC}"
 echo -e "  ${WHITE}Zero-Leak In-Memory Hub:${NC}     ${GREEN}Разметка меню строится в RAM только после 200 OK${NC}"
