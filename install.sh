@@ -2861,9 +2861,9 @@ server {
         gzip off;
     }
 
-        location ^~ ${XHTTP_STREAM_PATH} {
+        location ^~ ${BASE_XHTTP_PATH} {
         if (\$request_method != POST) { return 404; }
-        proxy_http_version 1.1;
+        proxy_http_version 2;
         proxy_set_header Host \$http_host;
         proxy_set_header X-Real-IP \$ak_real_ip;
         proxy_set_header X-Forwarded-For \$ak_real_ip;
@@ -2875,7 +2875,7 @@ server {
         proxy_read_timeout 1h;
         proxy_send_timeout 1h;
         client_max_body_size 0;
-        proxy_pass http://127.0.0.1:${XHTTP_STREAM_PORT};
+        proxy_pass http://xray_xhttp_stream;
     }
 
     location ^~ /api/v1/datasphere/ {
@@ -2951,9 +2951,9 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
-    location ^~ ${XHTTP_STREAM_PATH} {
+    location ^~ ${BASE_XHTTP_PATH} {
         if (\$request_method != POST) { return 404; }
-        proxy_http_version 1.1;
+        proxy_http_version 2;
         proxy_set_header Host \$http_host;
         proxy_set_header X-Real-IP \$ak_real_ip;
         proxy_set_header X-Forwarded-For \$ak_real_ip;
@@ -2965,7 +2965,7 @@ server {
         proxy_read_timeout 1h;
         proxy_send_timeout 1h;
         client_max_body_size 0;
-        proxy_pass http://127.0.0.1:${XHTTP_STREAM_PORT};
+        proxy_pass http://xray_xhttp_stream;
     }
 
     location = ${PANEL_PATH%/} { return 301 ${PANEL_PATH}; }
@@ -4002,7 +4002,7 @@ elif install_mode == "2":
             r3 = r3_row[0] if r3_row else f"VLESS xHTTP ({domain})"
             add_host_entry(str(uuid.uuid4()), ib3_id, r3, domain, 443, "tls", sni=domain, path=xhttp_path, alpn=json.dumps(["h2"]), fp="firefox", sort_order=2)
 
-    conn.commit()
+conn.commit()
 try:
     cur.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 except Exception:
@@ -4050,11 +4050,18 @@ if [ "${ENABLE_NATIVE_AWG:-0}" -eq 1 ]; then
     log "Установка DKMS-модуля и инструментов AmneziaWG..."
     if [ "$OS_ID" = "ubuntu" ]; then
         wait_for_apt_lock
-        add-apt-repository -y ppa:amnezia/ppa >/dev/null 2>&1 || true
-        wait_for_apt_lock
-        apt-get update -q >/dev/null 2>&1 || true
-        wait_for_apt_lock
-        apt-get install -y amneziawg-dkms amneziawg-tools -q >/dev/null 2>&1 || true
+        log "Установка заголовков ядра linux-headers..."
+        apt-get install -y build-essential dkms "linux-headers-$(uname -r)" -q < /dev/null || true
+        log "Импорт официального репозитория AmneziaWG по HTTPS (порт 443)..."
+        mkdir -p /etc/apt/keyrings
+        curl -fsSL --connect-timeout 8 -m 20 "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x75C9DD72C799870E310542E24166F2C257290828" | gpg --dearmor --yes -o /etc/apt/keyrings/amnezia.gpg 2>/dev/null || true
+        if [ -s /etc/apt/keyrings/amnezia.gpg ]; then
+            echo "deb [signed-by=/etc/apt/keyrings/amnezia.gpg] https://ppa.launchpadcontent.net/amnezia/ppa/ubuntu noble main" > /etc/apt/sources.list.d/amnezia.list
+            wait_for_apt_lock
+            apt-get update -q -o Dir::Etc::sourcelist="sources.list.d/amnezia.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0" >/dev/null 2>&1 || apt-get update -q || true
+            wait_for_apt_lock
+            DEBIAN_FRONTEND=noninteractive apt-get install -y amneziawg-dkms amneziawg-tools -q -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" < /dev/null || true
+        fi
     fi
 
     if ! command -v awg >/dev/null 2>&1 || ! dkms status 2>/dev/null | grep -q "amneziawg"; then
