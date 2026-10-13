@@ -3076,6 +3076,9 @@ if [ ! -x "/usr/local/x-ui/x-ui" ]; then
     download_asset "$UI_SCRIPT" "${UI_URLS[@]}" || die "Не удалось загрузить инсталлятор 3X-UI!"
     printf "n\n" | bash "$UI_SCRIPT" >/tmp/3xui_install.log 2>&1
     rm -f "$UI_SCRIPT"
+    /usr/local/x-ui/x-ui setting -webBasePath "${RAW_PATH}" -port "${PANEL_PORT}" >/dev/null 2>&1 || true
+    sqlite3 "$DB_PATH" "UPDATE settings SET value = '${PANEL_PATH}' WHERE key = 'webBasePath';" 2>/dev/null || true
+    sqlite3 "$DB_PATH" "UPDATE settings SET value = '${PANEL_PORT}' WHERE key = 'webPort';" 2>/dev/null || true
 fi
 
 for alt_db in "$DB_PATH" "/usr/local/x-ui/bin/x-ui.db" "/etc/x-ui/db/x-ui.db"; do
@@ -4415,6 +4418,9 @@ def verify_credentials(user, pwd):
     return False
 
 def get_panel_path():
+    env_p = os.environ.get("PANEL_PATH", "").strip().strip("/")
+    if env_p:
+        return f"/{env_p}/"
     for db_path in DB_PATHS:
         if os.path.exists(db_path):
             try:
@@ -4754,6 +4760,7 @@ User=root
 Environment="ENABLE_AGH=${ENABLE_AGH:-0}"
 Environment="GEO_PROFILE=$GEO_PROFILE"
 Environment="PRIMARY_DOMAIN=$PRIMARY_DOMAIN"
+Environment="PANEL_PATH=$PANEL_PATH"
 Environment="AGH_DOMAIN=${AGH_DOMAIN:-}"
 Environment="NATIVE_AWG_PORT=$NATIVE_AWG_PORT"
 ExecStart=/usr/bin/python3 /usr/local/bin/datasphere-core.py
