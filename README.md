@@ -295,7 +295,7 @@ PersistentKeepalive = 25
 ### Настройка роутера OpenWrt (Пакет Podkop / Https-DNS-Proxy):
 1. **Службы** $\to$ **Podkop** $\to$ **Настройки** (вкладка DNS):
    * Протокол: `DNS через HTTPS (DoH)`;
-   * Строка подключения (URL): `https://dns.yourdomain.online/dns-query/home-router`;
+   * Строка подключения (URL без https://): `dns.yourdomain.online/dns-query/home-router`;
    * Bootstrap DNS: `77.88.8.8` (для РФ) или `1.1.1.1` (для Зарубежья).
 2. Сохранить настройки и перезапустить службу Podkop для маршрутизации DNS-запросов через AdGuard Home.
 
